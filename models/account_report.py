@@ -158,7 +158,7 @@ class AccountReport(models.Model):
             line_dict = self._build_line_dict(line, all_values, options)
             lines.append(line_dict)
             if options.get('unfold_all') or line.id in (options.get('unfolded_lines') or []):
-                lines += self._get_children_lines(line, all_values, options)
+                lines += self._get_expanded_lines(line, all_values, options)
 
         return {
             'lines': lines,
@@ -286,15 +286,24 @@ class AccountReport(models.Model):
 
     # -------------------------------------------------------------------------
 
+    def _get_expanded_lines(self, line, all_values, options):
+        """Return sub-lines for *line* when it is in ``unfolded_lines``.
+
+        Dispatches to ``_get_groupby_lines`` for groupby lines (virtual account/
+        partner sub-rows) and to ``_get_children_lines`` for structural children.
+        """
+        if line.groupby or line.user_groupby:
+            return self._get_groupby_lines(line, options)
+        return self._get_children_lines(line, all_values, options)
+
     def _get_children_lines(self, parent_line, all_values, options):
         """Recursively build child line dicts for *parent_line*."""
         result = []
         for child in parent_line.children_ids.sorted('sequence'):
             result.append(self._build_line_dict(child, all_values, options))
             if options.get('unfold_all') or child.id in (options.get('unfolded_lines') or []):
-                result += self._get_children_lines(child, all_values, options)
+                result += self._get_expanded_lines(child, all_values, options)
         return result
-
     def _build_line_dict(self, line, all_values, options):
         """Convert an account.report.line record into a serialisable dict."""
         columns = self._build_columns(line, all_values, options)
