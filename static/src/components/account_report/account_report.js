@@ -11,6 +11,7 @@ import { Component, useState, onWillStart, useRef } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { useSetupAction } from "@web/search/action_hook";
+import { user } from "@web/core/user";
 import { AccountReportController } from "./controller";
 import { Filters } from "./filters/filters";
 import { ButtonsBar } from "./buttons_bar/buttons_bar";
@@ -24,7 +25,6 @@ export class AccountReport extends Component {
         this.rootRef = useRef("root");
         this.action = useService("action");
         this.notification = useService("notification");
-        this.company = useService("company");
 
         this.reportId = this.props.action?.context?.report_id || null;
 
@@ -62,8 +62,8 @@ export class AccountReport extends Component {
     // ── Session storage (mirrors enterprise saveSessionOptions pattern) ────────
 
     _sessionKey() {
-        // Include company so options don't bleed across company switches.
-        const cid = this.company?.currentCompany?.id || 0;
+        // Include company ID (same pattern as enterprise) so options don't bleed across company switches.
+        const cid = user.activeCompany?.id || 0;
         return `odooer_account.report:${this.reportId}:${cid}`;
     }
 
