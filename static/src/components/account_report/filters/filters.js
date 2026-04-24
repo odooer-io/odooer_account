@@ -10,6 +10,7 @@ export class Filters extends Component {
         });
     }
 
+    get isSingleDate() { return this.props.options?.date?.mode === 'single'; }
     get dateFrom() { return this.props.options?.date?.date_from || ""; }
     get dateTo()   { return this.props.options?.date?.date_to   || ""; }
     get showDraft() { return this.props.options?.show_draft !== false; }

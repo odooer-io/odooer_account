@@ -6,7 +6,7 @@
         t-attf-class="o_report_value_col text-end #{isClickable ? 'o_report_cell_clickable' : ''}"
         t-on-click="onCellClick"
     >
-        <span t-esc="formattedValue"/>
+        <span class="o_report_cell_value" t-esc="formattedValue"/>
     </td>
 </t>
 

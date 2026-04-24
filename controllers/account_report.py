@@ -22,6 +22,16 @@ class AccountReportController(http.Controller):
         report = request.env['account.report'].browse(int(report_id))
         return report._get_options(previous_options)
 
+    @http.route('/odooer_account/report/get_audit_action', type='jsonrpc', auth='user')
+    def get_audit_action(self, report_id, line_id, options, audit_parent_line_id=None, audit_extra_domain=None):
+        report = request.env['account.report'].browse(int(report_id))
+        return report.get_audit_action(
+            line_id,
+            options,
+            audit_parent_line_id=audit_parent_line_id,
+            audit_extra_domain=audit_extra_domain,
+        )
+
     @http.route('/odooer_account/report/export_xlsx', type='http', auth='user')
     def export_xlsx(self, report_id, options):
         report = request.env['account.report'].browse(int(report_id))

@@ -53,8 +53,10 @@ class AccountReport(models.Model):
         if previous_options and previous_options.get('date'):
             options['date'] = dict(previous_options['date'])
         else:
+            # Balance sheet (filter_date_range=False) uses a single "as of" date;
+            # no date_from means the engine accumulates from the beginning of time.
             options['date'] = {
-                'date_from': fields.Date.to_string(year_start),
+                'date_from': fields.Date.to_string(year_start) if self.filter_date_range else False,
                 'date_to': fields.Date.to_string(today),
                 'mode': 'range' if self.filter_date_range else 'single',
                 'filter': self.default_opening_date_filter or 'this_year',
@@ -179,7 +181,74 @@ class AccountReport(models.Model):
         return self._get_children_lines(line, all_values, options)
 
     # -------------------------------------------------------------------------
-    # Internal line builders
+    # Audit / drill-down action
+    # -------------------------------------------------------------------------
+
+    def get_audit_action(self, line_id, options, audit_parent_line_id=None, audit_extra_domain=None):
+        """Return an act_window action opening the AML journal items for *line_id*.
+
+        For regular report lines the domain is built from the line's ``domain``
+        engine expressions plus the current date/company filter.
+
+        For groupby virtual sub-lines (e.g. a single Bank Account row expanded
+        from "Bank and Cash") the caller also supplies *audit_parent_line_id*
+        (the real report line) and *audit_extra_domain* (e.g.
+        ``[('account_id', '=', 103)]``) to narrow the result.
+        """
+        self.ensure_one()
+        parent_id = audit_parent_line_id or (int(line_id) if str(line_id).isdigit() else None)
+        if not parent_id:
+            return {}
+
+        line = self.env['account.report.line'].browse(parent_id)
+        domain = self._build_audit_domain_for_line(line, options)
+
+        if audit_extra_domain:
+            domain = audit_extra_domain + domain
+
+        date_to = options['date']['date_to']
+        date_from = options['date'].get('date_from')
+        if date_from:
+            date_label = f"{date_from} → {date_to}"
+        else:
+            date_label = f"As of {date_to}"
+
+        return {
+            'type': 'ir.actions.act_window',
+            'name': f"{line.name} ({date_label})",
+            'res_model': 'account.move.line',
+            'view_mode': 'list,form',
+            'views': [[False, 'list'], [False, 'form']],
+            'domain': domain,
+            'context': {'search_default_group_by_move': 1},
+        }
+
+    def _build_audit_domain_for_line(self, line, options):
+        """Return the AML search domain for auditing *line* with *options*."""
+        import ast
+
+        date_from = options['date'].get('date_from')
+        date_to = options['date']['date_to']
+        show_draft = options.get('show_draft', False)
+        company_ids = options.get('company_ids', [self.env.company.id])
+
+        domain = [
+            ('company_id', 'in', company_ids),
+            ('date', '<=', date_to),
+            ('move_id.state', 'in', ['draft', 'posted'] if show_draft else ['posted']),
+        ]
+        if date_from:
+            domain.append(('date', '>=', date_from))
+
+        for expr in line.expression_ids:
+            if expr.engine == 'domain':
+                try:
+                    domain += ast.literal_eval(expr.formula)
+                except Exception:
+                    _logger.warning('Could not parse audit domain: %s', expr.formula)
+
+        return domain
+
     # -------------------------------------------------------------------------
 
     def _get_children_lines(self, parent_line, all_values, options):
@@ -532,9 +601,16 @@ class AccountReport(models.Model):
 
         currency = self.env['res.currency'].browse(options['currency_id'])
         result = []
-        for key, balance in sorted(groups.items(), key=lambda x: -abs(x[1])):
+        for idx, (key, balance) in enumerate(sorted(groups.items(), key=lambda x: -abs(x[1]))):
+            # Build extra domain to drill down to just this groupby bucket
+            extra_domain = []
+            for i, gf in enumerate(groupby_fields):
+                v = key[i]
+                if v is not None:
+                    extra_domain.append((gf, '=', v))
+
             result.append({
-                'id': f'groupby_{line.id}_{key}',
+                'id': f'groupby_{line.id}_{idx}',
                 'name': group_names[key],
                 'level': line.hierarchy_level + 2,
                 'code': '',
@@ -543,6 +619,8 @@ class AccountReport(models.Model):
                 'groupby': False,
                 'columns': [self._format_column(balance, 'monetary', currency)],
                 'print_on_new_page': False,
+                'audit_parent_line_id': line.id,
+                'audit_extra_domain': extra_domain,
             })
         return result
 

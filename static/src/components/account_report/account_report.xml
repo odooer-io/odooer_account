@@ -30,6 +30,7 @@
                         <Line
                             line="line"
                             options="state.options"
+                            reportId="reportId"
                             onToggle.bind="onToggleLine"
                         />
                     </t>

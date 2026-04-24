@@ -16,7 +16,7 @@
 
         <!-- Value cells -->
         <t t-foreach="props.line.columns" t-as="col" t-key="col_index">
-            <LineCell col="col" line="props.line" options="props.options"/>
+            <LineCell col="col" line="props.line" options="props.options" reportId="props.reportId"/>
         </t>
     </tr>
 </t>

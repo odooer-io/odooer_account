@@ -1,6 +1,7 @@
 /** @odoo-module **/
 import { Component } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
+import { rpc } from "@web/core/network/rpc";
 
 export class LineCell extends Component {
     static template = "odooer_account.LineCell";
@@ -16,27 +17,29 @@ export class LineCell extends Component {
     }
 
     get isClickable() {
-        // Leaf-level monetary cells can drill down to journal items
-        const line = this.props.line;
-        return !line.has_children && this.props.col.figure_type === "monetary";
+        const { col, line } = this.props;
+        // Only non-zero monetary cells on leaf lines (or groupby sub-lines) are clickable
+        return (
+            !line.has_children &&
+            col.figure_type === "monetary" &&
+            col.no_format !== 0 &&
+            col.no_format !== null &&
+            col.no_format !== undefined
+        );
     }
 
-    onCellClick() {
+    async onCellClick() {
         if (!this.isClickable) return;
-        const line = this.props.line;
-        const options = this.props.options;
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: line.name,
-            res_model: "account.move.line",
-            view_mode: "list,form",
-            views: [[false, "list"], [false, "form"]],
-            domain: [
-                ["date", ">=", options.date?.date_from || false],
-                ["date", "<=", options.date?.date_to || false],
-                ["move_id.state", "!=", "cancel"],
-            ],
-            context: { search_default_group_by_account: 1 },
+        const { line, options, reportId } = this.props;
+        const action = await rpc("/odooer_account/report/get_audit_action", {
+            report_id: reportId,
+            line_id: line.id,
+            options: options,
+            audit_parent_line_id: line.audit_parent_line_id || null,
+            audit_extra_domain: line.audit_extra_domain || null,
         });
+        if (action && action.type) {
+            this.action.doAction(action);
+        }
     }
 }
