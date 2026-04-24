@@ -7,25 +7,36 @@
         <field name="model">odooer.account.reconcile.wizard</field>
         <field name="arch" type="xml">
             <form string="Reconcile Journal Items">
-                <div class="alert alert-warning mb-3" role="alert">
-                    <strong>Write-Off Required</strong> — the selected journal items do not
-                    balance to zero. Please specify a write-off account to absorb the difference.
-                </div>
 
-                <group string="Reconciliation Summary" col="2">
+                <group string="Summary" col="2">
                     <field name="account_id" readonly="1"/>
                     <field name="currency_id" invisible="1"/>
                     <field name="total_debit" readonly="1"/>
                     <field name="total_credit" readonly="1"/>
-                    <field name="writeoff_amount" readonly="1" class="fw-bold"/>
+                    <field name="writeoff_amount" readonly="1" class="fw-bold text-danger"/>
                 </group>
 
-                <group string="Write-Off Details" col="2">
-                    <field name="writeoff_date" required="1"/>
+                <group string="Reconciliation Type" col="1">
+                    <field name="reconcile_type" widget="radio" nolabel="1"/>
+                </group>
+
+                <group string="Write-Off Details" col="2"
+                      invisible="reconcile_type != 'writeoff'">
+                    <div class="alert alert-info col-12 mb-2" role="alert">
+                        A journal entry will be created to absorb the difference and fully close these items.
+                    </div>
+                    <field name="writeoff_date"/>
                     <field name="writeoff_journal_id"/>
-                    <field name="writeoff_account_id" required="1"/>
+                    <field name="writeoff_account_id"
+                           required="reconcile_type == 'writeoff'"/>
                     <field name="writeoff_label"/>
                 </group>
+
+                <div class="alert alert-info mb-0" role="alert"
+                     invisible="reconcile_type != 'partial'">
+                    Items will be matched up to the smaller amount. The remaining
+                    difference stays open with a partial matching number (P…).
+                </div>
 
                 <footer>
                     <button name="action_reconcile" string="Reconcile" type="object"
