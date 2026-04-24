@@ -24,7 +24,7 @@
             <record id="ar_line_all" model="account.report.line">
                 <field name="name">Customers</field>
                 <field name="code">AR_ALL</field>
-                <field name="groupby">partner_id</field>
+                <field name="groupby">partner_id, id</field>
                 <field name="foldable" eval="True"/>
                 <field name="hide_if_zero" eval="True"/>
                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_receivable'), ('reconciled', '=', False)])</field>

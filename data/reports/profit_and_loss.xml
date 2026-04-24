@@ -25,12 +25,14 @@
             <record id="pl_line_income" model="account.report.line">
                 <field name="name">Income</field>
                 <field name="code">PL_INCOME</field>
+                <field name="groupby">account_id</field>
                 <field name="foldable" eval="True"/>
                 <field name="domain_formula">-sum([('account_id.account_type', 'in', ['income', 'income_other'])])</field>
             </record>
             <record id="pl_line_cogs" model="account.report.line">
                 <field name="name">Cost of Revenue</field>
                 <field name="code">PL_COGS</field>
+                <field name="groupby">account_id</field>
                 <field name="foldable" eval="True"/>
                 <field name="domain_formula">sum([('account_id.account_type', '=', 'expense_direct_cost')])</field>
             </record>
@@ -43,6 +45,7 @@
             <record id="pl_line_opex" model="account.report.line">
                 <field name="name">Operating Expenses</field>
                 <field name="code">PL_OPEX</field>
+                <field name="groupby">account_id</field>
                 <field name="foldable" eval="True"/>
                 <field name="domain_formula">sum([('account_id.account_type', 'in', ['expense', 'expense_other', 'expense_depreciation'])])</field>
             </record>
@@ -55,6 +58,7 @@
             <record id="pl_line_other" model="account.report.line">
                 <field name="name">Other Income / Expense</field>
                 <field name="code">PL_OTHER</field>
+                <field name="groupby">account_id</field>
                 <field name="foldable" eval="True"/>
                 <field name="hide_if_zero" eval="True"/>
                 <field name="domain_formula">-sum([('account_id.account_type', '=', 'income_other')])</field>

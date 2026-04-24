@@ -42,24 +42,28 @@
                             <record id="bs_line_cash" model="account.report.line">
                                 <field name="name">Bank and Cash</field>
                                 <field name="code">BS_CASH</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_cash')])</field>
                             </record>
                             <record id="bs_line_rec" model="account.report.line">
                                 <field name="name">Receivables</field>
                                 <field name="code">BS_REC</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_receivable')])</field>
                             </record>
                             <record id="bs_line_cura" model="account.report.line">
                                 <field name="name">Other Current Assets</field>
                                 <field name="code">BS_CURA</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_current')])</field>
                             </record>
                             <record id="bs_line_prep" model="account.report.line">
                                 <field name="name">Prepayments</field>
                                 <field name="code">BS_PREP</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_prepayments')])</field>
                             </record>
@@ -75,12 +79,14 @@
                             <record id="bs_line_fix" model="account.report.line">
                                 <field name="name">Fixed Assets</field>
                                 <field name="code">BS_FIX</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_fixed')])</field>
                             </record>
                             <record id="bs_line_ncura" model="account.report.line">
                                 <field name="name">Other Non-current Assets</field>
                                 <field name="code">BS_NCURA</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_non_current')])</field>
                             </record>
@@ -107,18 +113,21 @@
                             <record id="bs_line_pay" model="account.report.line">
                                 <field name="name">Payables</field>
                                 <field name="code">BS_PAY</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_payable')])</field>
                             </record>
                             <record id="bs_line_cc" model="account.report.line">
                                 <field name="name">Credit Cards</field>
                                 <field name="code">BS_CC</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_credit_card')])</field>
                             </record>
                             <record id="bs_line_curl" model="account.report.line">
                                 <field name="name">Other Current Liabilities</field>
                                 <field name="code">BS_CURL</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_current')])</field>
                             </record>
@@ -134,6 +143,7 @@
                             <record id="bs_line_ncurl" model="account.report.line">
                                 <field name="name">Other Non-current Liabilities</field>
                                 <field name="code">BS_NCURL</field>
+                                <field name="groupby">account_id</field>
                                 <field name="foldable" eval="True"/>
                                 <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_non_current')])</field>
                             </record>
@@ -153,12 +163,14 @@
                     <record id="bs_line_equ" model="account.report.line">
                         <field name="name">Equity</field>
                         <field name="code">BS_EQU</field>
+                        <field name="groupby">account_id</field>
                         <field name="foldable" eval="True"/>
                         <field name="domain_formula">-sum([('account_id.account_type', '=', 'equity')])</field>
                     </record>
                     <record id="bs_line_cye" model="account.report.line">
                         <field name="name">Current Year Earnings</field>
                         <field name="code">BS_CYE</field>
+                        <field name="groupby">account_id</field>
                         <field name="foldable" eval="True"/>
                         <field name="domain_formula">-sum([('account_id.account_type', '=', 'equity_unaffected')])</field>
                     </record>
