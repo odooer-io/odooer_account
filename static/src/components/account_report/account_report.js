@@ -7,7 +7,7 @@
  * sessionStorage on every change (including initial load).  This gives us free
  * page-refresh and browser-back restoration, just like enterprise.
  */
-import { Component, useState, onWillStart, useRef } from "@odoo/owl";
+import { Component, useState, onWillStart } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { useSetupAction } from "@web/search/action_hook";
@@ -22,7 +22,6 @@ export class AccountReport extends Component {
     static components = { Filters, ButtonsBar, Line };
 
     setup() {
-        this.rootRef = useRef("root");
         this.action = useService("action");
         this.notification = useService("notification");
 
@@ -37,9 +36,12 @@ export class AccountReport extends Component {
             loadMoreRemaining: 0,
         });
 
-        // Register with Odoo's action stack so breadcrumb back works correctly.
+        // Register with Odoo's action stack — getLocalState is called before doAction
+        // navigates away; the saved flag tells the action service this action has local
+        // state so it preserves it in the breadcrumb.  Do NOT pass rootRef here: our
+        // template has no t-ref="root", so rootRef.el would be null and trigger a
+        // querySelector crash inside useSetupAction's scroll-capture logic.
         useSetupAction({
-            rootRef: this.rootRef,
             getLocalState: () => ({ has_state: true }),
         });
 
