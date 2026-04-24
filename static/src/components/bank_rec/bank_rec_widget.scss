@@ -1,0 +1,32 @@
+.o_odooer_bank_rec_widget {
+    height: 100%;
+
+    .o_bank_rec_left_panel {
+        background: #fafafa;
+
+        .o_bank_rec_line {
+            transition: background-color 0.1s;
+
+            &:hover:not(.bg-primary) {
+                background-color: #f0f7ff !important;
+            }
+        }
+    }
+
+    .o_bank_rec_right_panel {
+        background: white;
+    }
+}
+
+.o_bank_rec_suggestion {
+    cursor: pointer;
+    font-size: 0.875rem;
+
+    &:hover {
+        background-color: #e8f4fd;
+    }
+
+    &:last-child {
+        border-bottom: none !important;
+    }
+}

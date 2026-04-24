@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ─── Bank Statement Import wizard ─────────────────────────────────── -->
+    <record id="view_odooer_bank_statement_import_form" model="ir.ui.view">
+        <field name="name">odooer.account.bank.statement.import.form</field>
+        <field name="model">odooer.account.bank.statement.import</field>
+        <field name="arch" type="xml">
+            <form string="Import Bank Statement">
+                <group>
+                    <group string="File">
+                        <field name="journal_id"/>
+                        <field name="attachment" filename="attachment_name" widget="binary"/>
+                        <field name="attachment_name" invisible="1"/>
+                        <field name="file_type" readonly="1"/>
+                        <field name="date_format"/>
+                        <field name="decimal_separator"/>
+                    </group>
+                    <group string="Column Mapping">
+                        <field name="col_date"/>
+                        <field name="col_description"/>
+                        <field name="col_amount"/>
+                        <field name="col_debit"/>
+                        <field name="col_credit"/>
+                        <field name="col_balance"/>
+                        <field name="col_ref"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_import" string="Import" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_odooer_bank_statement_import" model="ir.actions.act_window">
+        <field name="name">Import Bank Statement</field>
+        <field name="res_model">odooer.account.bank.statement.import</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem
+        id="menu_odooer_bank_import"
+        name="Import Bank Statement"
+        parent="account.menu_finance_entries"
+        action="action_odooer_bank_statement_import"
+        sequence="50"/>
+</odoo>

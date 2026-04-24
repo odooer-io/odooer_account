@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="odooer_account.Filters">
+    <div class="o_odooer_filters d-flex align-items-center gap-3 flex-wrap">
+
+        <!-- Date from -->
+        <div class="d-flex align-items-center gap-1">
+            <label class="text-nowrap mb-0 small fw-semibold">From</label>
+            <input
+                type="date"
+                class="form-control form-control-sm"
+                style="width: 140px;"
+                t-att-value="dateFrom"
+                t-on-change="onDateFromChange"
+            />
+        </div>
+
+        <!-- Date to -->
+        <div class="d-flex align-items-center gap-1">
+            <label class="text-nowrap mb-0 small fw-semibold">To</label>
+            <input
+                type="date"
+                class="form-control form-control-sm"
+                style="width: 140px;"
+                t-att-value="dateTo"
+                t-on-change="onDateToChange"
+            />
+        </div>
+
+        <!-- Draft toggle -->
+        <div class="form-check mb-0">
+            <input
+                type="checkbox"
+                class="form-check-input"
+                id="filter_draft"
+                t-att-checked="showDraft"
+                t-on-change="onToggleDraft"
+            />
+            <label class="form-check-label small" for="filter_draft">Include Draft</label>
+        </div>
+
+        <!-- Hide zero lines -->
+        <div class="form-check mb-0">
+            <input
+                type="checkbox"
+                class="form-check-input"
+                id="filter_hide0"
+                t-att-checked="hide0"
+                t-on-change="onToggleHide0"
+            />
+            <label class="form-check-label small" for="filter_hide0">Hide Zero Lines</label>
+        </div>
+
+        <!-- Comparison toggle -->
+        <div class="form-check mb-0">
+            <input
+                type="checkbox"
+                class="form-check-input"
+                id="filter_comparison"
+                t-att-checked="state.showComparison"
+                t-on-change="onToggleComparison"
+            />
+            <label class="form-check-label small" for="filter_comparison">Compare</label>
+        </div>
+
+        <!-- Comparison period count -->
+        <div t-if="state.showComparison" class="d-flex align-items-center gap-1">
+            <label class="text-nowrap mb-0 small">Periods</label>
+            <input
+                type="number"
+                min="1" max="4"
+                class="form-control form-control-sm"
+                style="width: 60px;"
+                t-att-value="props.options.comparison?.number_period || 1"
+                t-on-change="onComparisonPeriods"
+            />
+        </div>
+
+    </div>
+</t>
+
+</templates>

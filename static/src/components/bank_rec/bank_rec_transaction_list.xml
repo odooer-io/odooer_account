@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odooer_account.BankRecTransactionList">
+        <div class="o_bank_rec_transaction_list d-flex flex-column h-100">
+            <div class="p-2 border-bottom bg-light d-flex gap-2">
+                <button class="btn btn-sm btn-primary" t-on-click="openNewTransactionDialog">
+                    <i class="fa fa-plus me-1"/> New
+                </button>
+                <input type="search" class="form-control form-control-sm"
+                    placeholder="Search transactions..."
+                    t-on-input="onSearchInput"/>
+                <button class="btn btn-sm"
+                    t-att-class="state.showReconciled ? 'btn-primary' : 'btn-outline-secondary'"
+                    t-on-click="toggleShowReconciled"
+                    title="Show reconciled">
+                    <i class="fa fa-check-circle"/>
+                </button>
+            </div>
+            <div class="px-3 py-1 bg-light border-bottom small text-muted">
+                <t t-esc="state.total"/> transaction(s)
+                <span t-if="!state.showReconciled"> unreconciled</span>
+            </div>
+            <div class="flex-grow-1 overflow-auto">
+                <t t-if="state.loading">
+                    <div class="text-center p-4"><i class="fa fa-spin fa-circle-o-notch"/></div>
+                </t>
+                <t t-else="">
+                    <t t-foreach="state.lines" t-as="line" t-key="line.id">
+                        <div class="o_bank_rec_line p-3 border-bottom cursor-pointer"
+                            t-att-class="{
+                                'bg-primary text-white': props.selectedLineId === line.id,
+                                'bg-light-subtle': line.is_reconciled and props.selectedLineId !== line.id,
+                            }"
+                            t-on-click="() => this.selectLine(line.id)">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1 me-2" style="min-width:0">
+                                    <div class="fw-semibold text-truncate" t-esc="line.payment_ref or '(no label)'"/>
+                                    <div class="small text-truncate opacity-75" t-esc="line.partner_name"/>
+                                    <div class="small opacity-75" t-esc="line.date"/>
+                                </div>
+                                <div class="text-end flex-shrink-0">
+                                    <div class="fw-bold"
+                                        t-attf-class="{{ line.amount >= 0 ? 'text-success' : 'text-danger' }}">
+                                        <t t-if="line.amount >= 0">+</t><t t-esc="line.amount.toFixed(2)"/><t t-esc="' ' + line.currency_symbol"/>
+                                    </div>
+                                    <div class="mt-1">
+                                        <span t-if="line.is_reconciled" class="badge bg-success-subtle text-success">Matched</span>
+                                        <span t-elif="line.to_check" class="badge bg-warning-subtle text-warning">To Review</span>
+                                        <span t-else="" class="badge bg-secondary-subtle text-secondary">Unmatched</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                    <div t-if="state.lines.length === 0 and !state.loading"
+                         class="text-center text-muted p-5">
+                        <i class="fa fa-check-circle-o fa-2x mb-2 d-block"/>
+                        All transactions reconciled!
+                    </div>
+                </t>
+            </div>
+            <div class="p-2 border-top text-end">
+                <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.loadLines()">
+                    <i class="fa fa-refresh"/> Refresh
+                </button>
+            </div>
+        </div>
+    </t>
+</templates>

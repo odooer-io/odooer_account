@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         General Ledger
+    ═══════════════════════════════════════════════════════════════════════ -->
+    <record id="account_report_gl" model="account.report">
+        <field name="name">General Ledger</field>
+        <field name="sequence">40</field>
+        <field name="filter_date_range" eval="True"/>
+        <field name="filter_show_draft" eval="True"/>
+        <field name="filter_unfold_all" eval="False"/>
+        <field name="filter_hide_0_lines">optional</field>
+        <field name="availability_condition">always</field>
+        <field name="default_opening_date_filter">this_year</field>
+        <field name="load_more_limit">80</field>
+    </record>
+
+    <record id="account_report_gl_col_debit" model="account.report.column">
+        <field name="report_id" ref="account_report_gl"/>
+        <field name="name">Debit</field>
+        <field name="expression_label">debit</field>
+        <field name="figure_type">monetary</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="account_report_gl_col_credit" model="account.report.column">
+        <field name="report_id" ref="account_report_gl"/>
+        <field name="name">Credit</field>
+        <field name="expression_label">credit</field>
+        <field name="figure_type">monetary</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="account_report_gl_col_balance" model="account.report.column">
+        <field name="report_id" ref="account_report_gl"/>
+        <field name="name">Balance</field>
+        <field name="expression_label">balance</field>
+        <field name="figure_type">monetary</field>
+        <field name="sequence">30</field>
+    </record>
+
+    <!-- All accounts — group by account_id for drill-down to individual entries -->
+    <record id="gl_line_all" model="account.report.line">
+        <field name="name">All Accounts</field>
+        <field name="report_id" ref="account_report_gl"/>
+        <field name="sequence">10</field>
+        <field name="code">GL_ALL</field>
+        <field name="groupby">account_id</field>
+        <field name="foldable" eval="True"/>
+        <field name="hide_if_zero" eval="False"/>
+    </record>
+    <record id="gl_expr_all_debit" model="account.report.expression">
+        <field name="report_line_id" ref="gl_line_all"/>
+        <field name="label">debit</field>
+        <field name="engine">domain</field>
+        <field name="formula">[('account_id.id', '!=', False)]</field>
+        <field name="subformula">debit</field>
+        <field name="figure_type">monetary</field>
+    </record>
+    <record id="gl_expr_all_credit" model="account.report.expression">
+        <field name="report_line_id" ref="gl_line_all"/>
+        <field name="label">credit</field>
+        <field name="engine">domain</field>
+        <field name="formula">[('account_id.id', '!=', False)]</field>
+        <field name="subformula">credit</field>
+        <field name="figure_type">monetary</field>
+    </record>
+    <record id="gl_expr_all_balance" model="account.report.expression">
+        <field name="report_line_id" ref="gl_line_all"/>
+        <field name="label">balance</field>
+        <field name="engine">domain</field>
+        <field name="formula">[('account_id.id', '!=', False)]</field>
+        <field name="subformula">sum</field>
+        <field name="figure_type">monetary</field>
+    </record>
+</odoo>

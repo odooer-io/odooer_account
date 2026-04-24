@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_odooer_account_statement_import,odooer.account.bank.statement.import,model_odooer_account_bank_statement_import,account.group_account_user,1,1,1,1
+access_odooer_account_reconcile_wizard,odooer.account.reconcile.wizard,model_odooer_account_reconcile_wizard,account.group_account_user,1,1,1,1

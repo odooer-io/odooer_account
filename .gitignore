@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+*.dylib
+.DS_Store
+*.swp
+*.swo
+.env
+.venv
+node_modules/

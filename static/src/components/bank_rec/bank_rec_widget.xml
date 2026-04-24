@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odooer_account.BankRecWidget">
+        <div class="o_odooer_bank_rec_widget d-flex h-100">
+            <div class="o_bank_rec_left_panel border-end" style="width:40%; overflow-y:auto;">
+                <BankRecTransactionList
+                    journalId="journalId"
+                    selectedLineId="state.selectedLineId"
+                    onSelect.bind="selectLine"
+                    onLineReconciled.bind="onLineReconciled"
+                    listVersion="state.listVersion"
+                />
+            </div>
+            <div class="o_bank_rec_right_panel flex-grow-1" style="overflow-y:auto;">
+                <t t-if="state.loading">
+                    <div class="d-flex align-items-center justify-content-center h-100">
+                        <i class="fa fa-spin fa-circle-o-notch fa-2x text-muted"/>
+                    </div>
+                </t>
+                <t t-elif="state.recData">
+                     <BankRecForm
+                        recData="state.recData"
+                        onReconciled.bind="onLineReconciled"
+                        onReloadData.bind="onReloadData"
+                    />
+                </t>
+                <t t-else="">
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+                        <i class="fa fa-hand-pointer-o fa-3x mb-3"/>
+                        <p>Select a transaction to reconcile</p>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

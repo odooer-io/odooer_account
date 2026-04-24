@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form view for account.bank.statement.line (CE has none) -->
+    <record id="view_odooer_bank_statement_line_form" model="ir.ui.view">
+        <field name="name">account.bank.statement.line.form.odooer</field>
+        <field name="model">account.bank.statement.line</field>
+        <field name="arch" type="xml">
+            <form string="New Transaction">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="date" required="1"/>
+                            <field name="journal_id" required="1"
+                                domain="[('type', 'in', ['bank', 'cash'])]"
+                                options="{'no_create': True}"/>
+                            <field name="partner_id"/>
+                            <field name="account_number"/>
+                        </group>
+                        <group>
+                            <field name="payment_ref" string="Label"/>
+                            <field name="amount" required="1"/>
+                            <field name="foreign_currency_id"
+                                groups="base.group_multi_currency"/>
+                            <field name="amount_currency"
+                                groups="base.group_multi_currency"
+                                invisible="not foreign_currency_id"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Dashboard override: redirect the "Transactions" primary button on bank/cash
+         journal cards to our bank reconciliation widget instead of bank statements. -->
+    <record id="view_odooer_account_journal_dashboard_bank_rec" model="ir.ui.view">
+        <field name="name">account.journal.dashboard.kanban.odooer.bank.rec</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.account_journal_dashboard_kanban_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@id='all_transactions_btn']" position="attributes">
+                <attribute name="name">action_open_bank_transactions</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

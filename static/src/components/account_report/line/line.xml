@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="odooer_account.Line">
+    <tr t-attf-class="o_report_line o_report_level_#{props.line.level}">
+        <!-- Name cell -->
+        <td class="o_report_name_col">
+            <span
+                t-if="props.line.has_children"
+                t-attf-class="o_report_fold_btn fa #{foldIcon}"
+                t-on-click="onFoldClick"
+            />
+            <span t-else="" class="o_report_fold_btn"/>
+            <span t-esc="props.line.name"/>
+        </td>
+
+        <!-- Value cells -->
+        <t t-foreach="props.line.columns" t-as="col" t-key="col_index">
+            <LineCell col="col" line="props.line" options="props.options"/>
+        </t>
+    </tr>
+</t>
+
+</templates>

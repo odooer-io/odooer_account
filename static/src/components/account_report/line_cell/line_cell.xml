@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="odooer_account.LineCell">
+    <td
+        t-attf-class="o_report_value_col text-end #{isClickable ? 'o_report_cell_clickable' : ''}"
+        t-on-click="onCellClick"
+    >
+        <span t-esc="formattedValue"/>
+    </td>
+</t>
+
+</templates>

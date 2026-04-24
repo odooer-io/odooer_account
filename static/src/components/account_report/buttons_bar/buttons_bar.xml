@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="odooer_account.ButtonsBar">
+    <div class="o_odooer_buttons_bar d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-secondary" t-on-click="onExportXlsx">
+            <i class="fa fa-file-excel-o me-1"/> Export XLSX
+        </button>
+    </div>
+</t>
+
+</templates>

@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ─── List view ────────────────────────────────────────────────────────── -->
+    <record id="view_odooer_account_report_list" model="ir.ui.view">
+        <field name="name">account.report.list.odooer</field>
+        <field name="model">account.report</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <list string="Financial Reports">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="availability_condition"/>
+                <field name="root_report_id" optional="hide"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ─── Form view ────────────────────────────────────────────────────────── -->
+    <record id="view_odooer_account_report_form" model="ir.ui.view">
+        <field name="name">account.report.form.odooer</field>
+        <field name="model">account.report</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <form string="Financial Report">
+                <header>
+                    <button name="action_open_report" string="Open Report"
+                            type="object" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="active"/>
+                            <field name="availability_condition"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Lines">
+                            <field name="line_ids" widget="one2many">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="code"/>
+                                    <field name="hierarchy_level"/>
+                                    <field name="foldable"/>
+                                    <field name="hide_if_zero"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Columns">
+                            <field name="column_ids" editable="bottom">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="expression_label"/>
+                                    <field name="figure_type"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Options">
+                            <group>
+                                <group>
+                                    <field name="filter_date_range"/>
+                                    <field name="filter_show_draft"/>
+                                    <field name="filter_unfold_all"/>
+                                    <field name="filter_hide_0_lines"/>
+                                    <field name="filter_period_comparison"/>
+                                </group>
+                                <group>
+                                    <field name="default_opening_date_filter"/>
+                                    <field name="load_more_limit"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ─── Act window — management UI ──────────────────────────────────────── -->
+    <record id="action_odooer_accounting_reports" model="ir.actions.act_window">
+        <field name="name">Accounting Reports</field>
+        <field name="res_model">account.report</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ─── Client actions — one per report ─────────────────────────────────── -->
+    <record id="action_odooer_report_pl" model="ir.actions.client">
+        <field name="name">Profit &amp; Loss</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_pl')}"/>
+    </record>
+
+    <record id="action_odooer_report_bs" model="ir.actions.client">
+        <field name="name">Balance Sheet</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_bs')}"/>
+    </record>
+
+    <record id="action_odooer_report_tb" model="ir.actions.client">
+        <field name="name">Trial Balance</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_tb')}"/>
+    </record>
+
+    <record id="action_odooer_report_gl" model="ir.actions.client">
+        <field name="name">General Ledger</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_gl')}"/>
+    </record>
+
+    <record id="action_odooer_report_partner_ledger" model="ir.actions.client">
+        <field name="name">Partner Ledger</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_partner_ledger')}"/>
+    </record>
+
+    <record id="action_odooer_report_aged_rec" model="ir.actions.client">
+        <field name="name">Aged Receivable</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_aged_rec')}"/>
+    </record>
+
+    <record id="action_odooer_report_aged_pay" model="ir.actions.client">
+        <field name="name">Aged Payable</field>
+        <field name="tag">odooer_account_report</field>
+        <field name="context" eval="{'report_id': ref('odooer_account.account_report_aged_pay')}"/>
+    </record>
+
+    <!-- ─── Menu: Accounting Reports management (manager only) ──────────────── -->
+    <menuitem
+        id="menu_odooer_accounting_reports"
+        name="Accounting Reports"
+        parent="account.menu_finance_reports"
+        action="action_odooer_accounting_reports"
+        groups="account.group_account_manager"
+        sequence="99"/>
+
+    <!-- ─── Menu: Statement Reports — P&L and Balance Sheet ─────────────────── -->
+    <menuitem
+        id="menu_odooer_report_pl"
+        name="Profit &amp; Loss"
+        parent="account.account_reports_legal_statements_menu"
+        action="action_odooer_report_pl"
+        groups="account.group_account_user"
+        sequence="10"/>
+
+    <menuitem
+        id="menu_odooer_report_bs"
+        name="Balance Sheet"
+        parent="account.account_reports_legal_statements_menu"
+        action="action_odooer_report_bs"
+        groups="account.group_account_user"
+        sequence="20"/>
+
+    <!-- ─── Menu: Finance Reports — Trial Balance, GL, Partner/Aged reports ─── -->
+    <menuitem
+        id="menu_odooer_report_tb"
+        name="Trial Balance"
+        parent="account.menu_finance_reports"
+        action="action_odooer_report_tb"
+        groups="account.group_account_user"
+        sequence="25"/>
+
+    <menuitem
+        id="menu_odooer_report_gl"
+        name="General Ledger"
+        parent="account.menu_finance_reports"
+        action="action_odooer_report_gl"
+        groups="account.group_account_user"
+        sequence="26"/>
+
+    <menuitem
+        id="menu_odooer_report_partner_ledger"
+        name="Partner Ledger"
+        parent="account.menu_finance_reports"
+        action="action_odooer_report_partner_ledger"
+        groups="account.group_account_user"
+        sequence="27"/>
+
+    <menuitem
+        id="menu_odooer_report_aged_rec"
+        name="Aged Receivable"
+        parent="account.menu_finance_reports"
+        action="action_odooer_report_aged_rec"
+        groups="account.group_account_user"
+        sequence="28"/>
+
+    <menuitem
+        id="menu_odooer_report_aged_pay"
+        name="Aged Payable"
+        parent="account.menu_finance_reports"
+        action="action_odooer_report_aged_pay"
+        groups="account.group_account_user"
+        sequence="29"/>
+</odoo>

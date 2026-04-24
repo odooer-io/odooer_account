@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ─── Lock Dates in Company Settings ───────────────────────────────── -->
+    <record id="view_res_company_form_lock_dates" model="ir.ui.view">
+        <field name="name">res.company.form.lock.dates.odooer</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Lock Dates" name="lock_dates">
+                    <group>
+                        <field name="fiscalyear_lock_date"/>
+                        <field name="period_lock_date"/>
+                        <field name="tax_lock_date"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

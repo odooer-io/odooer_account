@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ─── Profit & Loss ─────────────────────────────────────────────────── -->
+    <record id="account_report_pl" model="account.report">
+        <field name="name">Profit &amp; Loss</field>
+        <field name="sequence">10</field>
+        <field name="filter_date_range" eval="True"/>
+        <field name="filter_period_comparison" eval="True"/>
+        <field name="filter_show_draft" eval="True"/>
+        <field name="filter_unfold_all" eval="False"/>
+        <field name="filter_hide_0_lines">optional</field>
+        <field name="availability_condition">always</field>
+        <field name="default_opening_date_filter">this_year</field>
+        <field name="load_more_limit">80</field>
+    </record>
+
+    <!-- P&L columns -->
+    <record id="account_report_pl_col_balance" model="account.report.column">
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="name">Balance</field>
+        <field name="expression_label">balance</field>
+        <field name="figure_type">monetary</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- P&L lines -->
+    <record id="pl_line_income" model="account.report.line">
+        <field name="name">Income</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">10</field>
+        <field name="code">PL_INCOME</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">4</field>
+    </record>
+
+    <record id="pl_line_cogs" model="account.report.line">
+        <field name="name">Cost of Revenue</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">20</field>
+        <field name="code">PL_COGS</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">5</field>
+    </record>
+
+    <record id="pl_line_gross_profit" model="account.report.line">
+        <field name="name">Gross Profit</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">30</field>
+        <field name="code">PL_GROSS</field>
+        <field name="foldable" eval="False"/>
+        <field name="aggregation_formula">PL_INCOME.balance + PL_COGS.balance</field>
+    </record>
+
+    <record id="pl_line_opex" model="account.report.line">
+        <field name="name">Operating Expenses</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">40</field>
+        <field name="code">PL_OPEX</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">6</field>
+    </record>
+
+    <record id="pl_line_operating_income" model="account.report.line">
+        <field name="name">Operating Income</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">50</field>
+        <field name="code">PL_OPINC</field>
+        <field name="foldable" eval="False"/>
+        <field name="aggregation_formula">PL_GROSS.balance + PL_OPEX.balance</field>
+    </record>
+
+    <record id="pl_line_other" model="account.report.line">
+        <field name="name">Other Income / Expense</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">60</field>
+        <field name="code">PL_OTHER</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">7</field>
+    </record>
+
+    <record id="pl_line_net" model="account.report.line">
+        <field name="name">Net Profit / Loss</field>
+        <field name="report_id" ref="account_report_pl"/>
+        <field name="sequence">70</field>
+        <field name="code">PL_NET</field>
+        <field name="foldable" eval="False"/>
+        <field name="aggregation_formula">PL_OPINC.balance + PL_OTHER.balance</field>
+    </record>
+
+    <!-- ─── Balance Sheet ────────────────────────────────────────────────── -->
+    <record id="account_report_bs" model="account.report">
+        <field name="name">Balance Sheet</field>
+        <field name="sequence">20</field>
+        <field name="filter_date_range" eval="False"/>
+        <field name="filter_period_comparison" eval="True"/>
+        <field name="filter_show_draft" eval="True"/>
+        <field name="filter_unfold_all" eval="False"/>
+        <field name="filter_hide_0_lines">optional</field>
+        <field name="availability_condition">always</field>
+        <field name="default_opening_date_filter">this_year</field>
+        <field name="load_more_limit">80</field>
+    </record>
+
+    <!-- BS columns -->
+    <record id="account_report_bs_col_balance" model="account.report.column">
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="name">Balance</field>
+        <field name="expression_label">balance</field>
+        <field name="figure_type">monetary</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- BS lines — Assets -->
+    <record id="bs_line_assets" model="account.report.line">
+        <field name="name">Assets</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="sequence">10</field>
+        <field name="code">BS_ASSETS</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">1</field>
+    </record>
+
+    <record id="bs_line_current_assets" model="account.report.line">
+        <field name="name">Current Assets</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="parent_id" ref="bs_line_assets"/>
+        <field name="sequence">10</field>
+        <field name="code">BS_CA</field>
+        <field name="foldable" eval="True"/>
+        <field name="account_codes_formula">10+11+12+13+14</field>
+    </record>
+
+    <record id="bs_line_noncurrent_assets" model="account.report.line">
+        <field name="name">Non-Current Assets</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="parent_id" ref="bs_line_assets"/>
+        <field name="sequence">20</field>
+        <field name="code">BS_NCA</field>
+        <field name="foldable" eval="True"/>
+        <field name="account_codes_formula">15+16+17+18+19</field>
+    </record>
+
+    <!-- BS lines — Liabilities -->
+    <record id="bs_line_liabilities" model="account.report.line">
+        <field name="name">Liabilities</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="sequence">20</field>
+        <field name="code">BS_LIAB</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">2</field>
+    </record>
+
+    <record id="bs_line_current_liabilities" model="account.report.line">
+        <field name="name">Current Liabilities</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="parent_id" ref="bs_line_liabilities"/>
+        <field name="sequence">10</field>
+        <field name="code">BS_CL</field>
+        <field name="foldable" eval="True"/>
+        <field name="account_codes_formula">20+21+22+23+24</field>
+    </record>
+
+    <record id="bs_line_noncurrent_liabilities" model="account.report.line">
+        <field name="name">Non-Current Liabilities</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="parent_id" ref="bs_line_liabilities"/>
+        <field name="sequence">20</field>
+        <field name="code">BS_NCL</field>
+        <field name="foldable" eval="True"/>
+        <field name="account_codes_formula">25+26+27+28+29</field>
+    </record>
+
+    <!-- BS lines — Equity -->
+    <record id="bs_line_equity" model="account.report.line">
+        <field name="name">Equity</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="sequence">30</field>
+        <field name="code">BS_EQUITY</field>
+        <field name="foldable" eval="False"/>
+        <field name="account_codes_formula">3</field>
+    </record>
+
+    <record id="bs_line_total" model="account.report.line">
+        <field name="name">Total Liabilities &amp; Equity</field>
+        <field name="report_id" ref="account_report_bs"/>
+        <field name="sequence">40</field>
+        <field name="code">BS_TOTAL</field>
+        <field name="foldable" eval="False"/>
+        <field name="aggregation_formula">BS_LIAB.balance + BS_EQUITY.balance</field>
+    </record>
+</odoo>

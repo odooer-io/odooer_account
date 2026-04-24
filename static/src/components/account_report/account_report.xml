@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+<t t-name="odooer_account.AccountReport">
+    <div class="o_odooer_report">
+        <!-- Header / filters -->
+        <div class="o_odooer_report_header">
+            <Filters options="state.options" onOptionsChanged.bind="onOptionsChanged"/>
+            <ButtonsBar onExportXlsx.bind="onExportXlsx"/>
+        </div>
+
+        <!-- Loading spinner -->
+        <div t-if="state.loading" class="o_odooer_report_loading">
+            <i class="fa fa-circle-o-notch fa-spin fa-2x"/>
+        </div>
+
+        <!-- Report table -->
+        <div t-else="" class="o_odooer_report_body">
+            <table class="o_odooer_report_table table table-sm">
+                <thead>
+                    <tr>
+                        <th class="o_report_name_col">Name</th>
+                        <t t-foreach="state.options.columns or []" t-as="col" t-key="col.id">
+                            <th class="o_report_value_col text-end"><t t-esc="col.name"/></th>
+                        </t>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="state.lines" t-as="line" t-key="line.id">
+                        <Line
+                            line="line"
+                            options="state.options"
+                            onToggle.bind="onToggleLine"
+                        />
+                    </t>
+                </tbody>
+            </table>
+
+            <!-- Load more -->
+            <div t-if="hasLoadMore" class="o_odooer_report_load_more text-center mt-2">
+                <button class="btn btn-secondary" t-on-click="_loadMore">
+                    Load more (<t t-esc="state.loadMoreRemaining"/> remaining)
+                </button>
+            </div>
+        </div>
+    </div>
+</t>
+
+</templates>
