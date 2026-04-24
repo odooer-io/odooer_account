@@ -2,10 +2,15 @@
 /**
  * AccountReport root OWL component.
  * Mounts the full report viewer: filters bar, buttons bar, and the line tree.
+ *
+ * State persistence mirrors the enterprise approach: full options are saved to
+ * sessionStorage on every change (including initial load).  This gives us free
+ * page-refresh and browser-back restoration, just like enterprise.
  */
-import { Component, useState, onWillStart } from "@odoo/owl";
+import { Component, useState, onWillStart, useRef } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { useSetupAction } from "@web/search/action_hook";
 import { AccountReportController } from "./controller";
 import { Filters } from "./filters/filters";
 import { ButtonsBar } from "./buttons_bar/buttons_bar";
@@ -16,10 +21,11 @@ export class AccountReport extends Component {
     static components = { Filters, ButtonsBar, Line };
 
     setup() {
+        this.rootRef = useRef("root");
         this.action = useService("action");
         this.notification = useService("notification");
+        this.company = useService("company");
 
-        // reportId is passed via the client action context
         this.reportId = this.props.action?.context?.report_id || null;
 
         this.controller = new AccountReportController(this.reportId);
@@ -31,50 +37,55 @@ export class AccountReport extends Component {
             loadMoreRemaining: 0,
         });
 
+        // Register with Odoo's action stack so breadcrumb back works correctly.
+        useSetupAction({
+            rootRef: this.rootRef,
+            getLocalState: () => ({ has_state: true }),
+        });
+
         onWillStart(async () => {
-            const saved = this._restoreState();
-            // Pass saved options so date/filters are restored; backend merges intelligently
-            await this._loadOptions(saved || null);
-            // Reapply saved unfolded_lines — backend getOptions doesn't know about them
+            // If we have a saved session, pass it as previousOptions so the backend
+            // merges user-chosen filters (date, show_draft, etc.) with any schema changes.
+            const saved = this._sessionOptions();
+            await this._loadOptions(saved);
+            // unfolded_lines is frontend-only; backend doesn't echo it back.
             if (saved?.unfolded_lines?.length) {
-                this.state.options = {
-                    ...this.state.options,
-                    unfolded_lines: saved.unfolded_lines,
-                };
+                this.state.options.unfolded_lines = [...saved.unfolded_lines];
             }
             await this._loadLines();
+            // Always persist after initial load so page-refresh restores state
+            // even before the user changes any filters.
+            this._saveSession();
         });
     }
 
-    // ── Session state helpers ─────────────────────────────────────────────────
+    // ── Session storage (mirrors enterprise saveSessionOptions pattern) ────────
 
-    _stateKey() {
-        return `odooer_report_state_${this.reportId}`;
+    _sessionKey() {
+        // Include company so options don't bleed across company switches.
+        const cid = this.company?.currentCompany?.id || 0;
+        return `odooer_account.report:${this.reportId}:${cid}`;
     }
 
-    _saveState() {
-        if (!this.reportId) return;
-        try {
-            sessionStorage.setItem(
-                this._stateKey(),
-                JSON.stringify({
-                    unfolded_lines: this.state.options.unfolded_lines || [],
-                    date: this.state.options.date,
-                    show_draft: this.state.options.show_draft,
-                    account_type: this.state.options.account_type,
-                })
-            );
-        } catch (_) {}
+    _hasSession() {
+        return Boolean(sessionStorage.getItem(this._sessionKey()));
     }
 
-    _restoreState() {
-        if (!this.reportId) return null;
+    _sessionOptions() {
         try {
-            const raw = sessionStorage.getItem(this._stateKey());
+            const raw = sessionStorage.getItem(this._sessionKey());
             return raw ? JSON.parse(raw) : null;
         } catch (_) {
             return null;
         }
+    }
+
+    _saveSession() {
+        if (!this.reportId) return;
+        try {
+            // Save the FULL options object — same as enterprise saveSessionOptions().
+            sessionStorage.setItem(this._sessionKey(), JSON.stringify(this.state.options));
+        } catch (_) {}
     }
 
     // ── Data loading ─────────────────────────────────────────────────────────
@@ -109,7 +120,7 @@ export class AccountReport extends Component {
 
     async onOptionsChanged(newOptions) {
         this.state.options = { ...this.state.options, ...newOptions };
-        this._saveState();
+        this._saveSession();
         await this._loadLines();
     }
 
@@ -120,7 +131,6 @@ export class AccountReport extends Component {
                 ...this.state.options,
                 unfolded_lines: unfolded.filter((id) => id !== lineId),
             };
-            // Remove children from state
             this.state.lines = this._removeChildren(this.state.lines, lineId);
         } else {
             this.state.options = {
@@ -130,7 +140,7 @@ export class AccountReport extends Component {
             const children = await this.controller.getChildren(lineId, this.state.options);
             this.state.lines = this._insertChildren(this.state.lines, lineId, children);
         }
-        this._saveState();
+        this._saveSession();
     }
 
     async onExportXlsx() {
