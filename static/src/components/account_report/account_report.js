@@ -32,9 +32,49 @@ export class AccountReport extends Component {
         });
 
         onWillStart(async () => {
-            await this._loadOptions();
+            const saved = this._restoreState();
+            // Pass saved options so date/filters are restored; backend merges intelligently
+            await this._loadOptions(saved || null);
+            // Reapply saved unfolded_lines — backend getOptions doesn't know about them
+            if (saved?.unfolded_lines?.length) {
+                this.state.options = {
+                    ...this.state.options,
+                    unfolded_lines: saved.unfolded_lines,
+                };
+            }
             await this._loadLines();
         });
+    }
+
+    // ── Session state helpers ─────────────────────────────────────────────────
+
+    _stateKey() {
+        return `odooer_report_state_${this.reportId}`;
+    }
+
+    _saveState() {
+        if (!this.reportId) return;
+        try {
+            sessionStorage.setItem(
+                this._stateKey(),
+                JSON.stringify({
+                    unfolded_lines: this.state.options.unfolded_lines || [],
+                    date: this.state.options.date,
+                    show_draft: this.state.options.show_draft,
+                    account_type: this.state.options.account_type,
+                })
+            );
+        } catch (_) {}
+    }
+
+    _restoreState() {
+        if (!this.reportId) return null;
+        try {
+            const raw = sessionStorage.getItem(this._stateKey());
+            return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+            return null;
+        }
     }
 
     // ── Data loading ─────────────────────────────────────────────────────────
@@ -69,6 +109,7 @@ export class AccountReport extends Component {
 
     async onOptionsChanged(newOptions) {
         this.state.options = { ...this.state.options, ...newOptions };
+        this._saveState();
         await this._loadLines();
     }
 
@@ -89,6 +130,7 @@ export class AccountReport extends Component {
             const children = await this.controller.getChildren(lineId, this.state.options);
             this.state.lines = this._insertChildren(this.state.lines, lineId, children);
         }
+        this._saveState();
     }
 
     async onExportXlsx() {

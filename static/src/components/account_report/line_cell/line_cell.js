@@ -17,15 +17,10 @@ export class LineCell extends Component {
     }
 
     get isClickable() {
-        const { col, line } = this.props;
-        // Only non-zero monetary cells on leaf lines (or groupby sub-lines) are clickable
-        return (
-            !line.has_children &&
-            col.figure_type === "monetary" &&
-            col.no_format !== 0 &&
-            col.no_format !== null &&
-            col.no_format !== undefined
-        );
+        const { col } = this.props;
+        // Any monetary cell with a value (including zero) is clickable — zero can hide
+        // cancelling DR/CR entries.
+        return col.figure_type === "monetary" && col.no_format !== null && col.no_format !== undefined;
     }
 
     async onCellClick() {

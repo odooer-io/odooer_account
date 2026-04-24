@@ -223,8 +223,26 @@ class AccountReport(models.Model):
             'context': {'search_default_group_by_move': 1},
         }
 
+    def _collect_domain_formulas(self, line):
+        """Recursively collect all ``domain``-engine expression formulas from *line* and its
+        descendants.  Parent/aggregation lines have no domain expressions themselves — we
+        walk the entire sub-tree so clicking a parent total still drills down correctly.
+        """
+        formulas = [
+            expr.formula
+            for expr in line.expression_ids
+            if expr.engine == 'domain'
+        ]
+        for child in line.children_ids:
+            formulas += self._collect_domain_formulas(child)
+        return formulas
+
     def _build_audit_domain_for_line(self, line, options):
-        """Return the AML search domain for auditing *line* with *options*."""
+        """Return the AML search domain for auditing *line* with *options*.
+
+        Works for both leaf lines (own domain expressions) and parent/total lines
+        (OR of all descendant leaf domains).
+        """
         import ast
 
         date_from = options['date'].get('date_from')
@@ -232,22 +250,39 @@ class AccountReport(models.Model):
         show_draft = options.get('show_draft', False)
         company_ids = options.get('company_ids', [self.env.company.id])
 
-        domain = [
+        base = [
             ('company_id', 'in', company_ids),
             ('date', '<=', date_to),
             ('move_id.state', 'in', ['draft', 'posted'] if show_draft else ['posted']),
         ]
         if date_from:
-            domain.append(('date', '>=', date_from))
+            base.append(('date', '>=', date_from))
 
-        for expr in line.expression_ids:
-            if expr.engine == 'domain':
-                try:
-                    domain += ast.literal_eval(expr.formula)
-                except Exception:
-                    _logger.warning('Could not parse audit domain: %s', expr.formula)
+        formulas = self._collect_domain_formulas(line)
+        parsed = []
+        for formula in formulas:
+            try:
+                d = ast.literal_eval(formula)
+                if d:
+                    parsed.append(d)
+            except Exception:
+                _logger.warning('Could not parse audit domain: %s', formula)
 
-        return domain
+        if not parsed:
+            return base
+
+        if len(parsed) == 1:
+            return base + parsed[0]
+
+        # OR together multiple sub-domains using Odoo's prefix notation:
+        # 2 items: ['|', *d1, *d2]
+        # 3 items: ['|', *d1, '|', *d2, *d3]  (chain: N-1 '|' operators interleaved)
+        combined = []
+        for i, d in enumerate(parsed):
+            if i < len(parsed) - 1:
+                combined.append('|')
+            combined.extend(d)
+        return base + combined
 
     # -------------------------------------------------------------------------
 
