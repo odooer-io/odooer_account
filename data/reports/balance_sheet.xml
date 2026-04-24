@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <!-- Reset old BS lines/expressions so the new nested structure loads cleanly -->
-    <function model="account.report" name="_odooer_reset_report">
-        <value eval="'odooer_account.account_report_bs'"/>
-    </function>
-
+<odoo auto_sequence="1">
     <!-- ═══════════════════════════════════════════════════════════════════════
          Balance Sheet
+         auto_sequence="1" lets Odoo assign sequences by XML order so
+         parents always sort before their children — no manual sequence needed.
     ═══════════════════════════════════════════════════════════════════════ -->
     <record id="account_report_bs" model="account.report">
         <field name="name">Balance Sheet</field>
@@ -19,353 +16,163 @@
         <field name="availability_condition">always</field>
         <field name="default_opening_date_filter">today</field>
         <field name="load_more_limit">80</field>
-    </record>
+        <field name="column_ids">
+            <record id="account_report_bs_col_balance" model="account.report.column">
+                <field name="name">Balance</field>
+                <field name="expression_label">balance</field>
+                <field name="figure_type">monetary</field>
+            </record>
+        </field>
+        <field name="line_ids">
 
-    <record id="account_report_bs_col_balance" model="account.report.column">
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="name">Balance</field>
-        <field name="expression_label">balance</field>
-        <field name="figure_type">monetary</field>
-        <field name="sequence">10</field>
-    </record>
+            <!-- ── ASSETS ──────────────────────────────────────────────── -->
+            <record id="bs_line_assets" model="account.report.line">
+                <field name="name">Assets</field>
+                <field name="code">BS_ASSETS</field>
+                <field name="foldable" eval="False"/>
+                <field name="aggregation_formula">BS_CA.balance + BS_NCA.balance</field>
+                <field name="children_ids">
 
-    <!-- ── ASSETS ────────────────────────────────────────────────────────────
-         Sequences are globally monotonic across the whole report so the
-         constraint "parent must sort before child" (sorted by sequence) is
-         satisfied at every level.
-    ─────────────────────────────────────────────────────────────────────── -->
-    <record id="bs_line_assets" model="account.report.line">
-        <field name="name">Assets</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="sequence">10</field>
-        <field name="code">BS_ASSETS</field>
-        <field name="foldable" eval="False"/>
-    </record>
-    <record id="bs_expr_assets_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_assets"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_CA.balance + BS_NCA.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
+                    <record id="bs_line_ca" model="account.report.line">
+                        <field name="name">Current Assets</field>
+                        <field name="code">BS_CA</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="aggregation_formula">BS_CASH.balance + BS_REC.balance + BS_CURA.balance + BS_PREP.balance</field>
+                        <field name="children_ids">
+                            <record id="bs_line_cash" model="account.report.line">
+                                <field name="name">Bank and Cash</field>
+                                <field name="code">BS_CASH</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_cash')])</field>
+                            </record>
+                            <record id="bs_line_rec" model="account.report.line">
+                                <field name="name">Receivables</field>
+                                <field name="code">BS_REC</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_receivable')])</field>
+                            </record>
+                            <record id="bs_line_cura" model="account.report.line">
+                                <field name="name">Other Current Assets</field>
+                                <field name="code">BS_CURA</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_current')])</field>
+                            </record>
+                            <record id="bs_line_prep" model="account.report.line">
+                                <field name="name">Prepayments</field>
+                                <field name="code">BS_PREP</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_prepayments')])</field>
+                            </record>
+                        </field>
+                    </record>
 
-    <!-- Current Assets (seq 20–60) -->
-    <record id="bs_line_ca" model="account.report.line">
-        <field name="name">Current Assets</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_assets"/>
-        <field name="sequence">20</field>
-        <field name="code">BS_CA</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_ca_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_ca"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_CASH.balance + BS_REC.balance + BS_CURA.balance + BS_PREP.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
+                    <record id="bs_line_nca" model="account.report.line">
+                        <field name="name">Non-current Assets</field>
+                        <field name="code">BS_NCA</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="aggregation_formula">BS_FIX.balance + BS_NCURA.balance</field>
+                        <field name="children_ids">
+                            <record id="bs_line_fix" model="account.report.line">
+                                <field name="name">Fixed Assets</field>
+                                <field name="code">BS_FIX</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_fixed')])</field>
+                            </record>
+                            <record id="bs_line_ncura" model="account.report.line">
+                                <field name="name">Other Non-current Assets</field>
+                                <field name="code">BS_NCURA</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">sum([('account_id.account_type', '=', 'asset_non_current')])</field>
+                            </record>
+                        </field>
+                    </record>
 
-    <record id="bs_line_cash" model="account.report.line">
-        <field name="name">Bank and Cash</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_ca"/>
-        <field name="sequence">30</field>
-        <field name="code">BS_CASH</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_cash_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_cash"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'asset_cash')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
+                </field>
+            </record>
 
-    <record id="bs_line_rec" model="account.report.line">
-        <field name="name">Receivables</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_ca"/>
-        <field name="sequence">40</field>
-        <field name="code">BS_REC</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_rec_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_rec"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'asset_receivable')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
+            <!-- ── LIABILITIES ─────────────────────────────────────────── -->
+            <record id="bs_line_liab" model="account.report.line">
+                <field name="name">Liabilities</field>
+                <field name="code">BS_LIAB</field>
+                <field name="foldable" eval="False"/>
+                <field name="aggregation_formula">BS_CL.balance + BS_NCL.balance</field>
+                <field name="children_ids">
 
-    <record id="bs_line_cura" model="account.report.line">
-        <field name="name">Other Current Assets</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_ca"/>
-        <field name="sequence">50</field>
-        <field name="code">BS_CURA</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_cura_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_cura"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'asset_current')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
+                    <record id="bs_line_cl" model="account.report.line">
+                        <field name="name">Current Liabilities</field>
+                        <field name="code">BS_CL</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="aggregation_formula">BS_PAY.balance + BS_CC.balance + BS_CURL.balance</field>
+                        <field name="children_ids">
+                            <record id="bs_line_pay" model="account.report.line">
+                                <field name="name">Payables</field>
+                                <field name="code">BS_PAY</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_payable')])</field>
+                            </record>
+                            <record id="bs_line_cc" model="account.report.line">
+                                <field name="name">Credit Cards</field>
+                                <field name="code">BS_CC</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_credit_card')])</field>
+                            </record>
+                            <record id="bs_line_curl" model="account.report.line">
+                                <field name="name">Other Current Liabilities</field>
+                                <field name="code">BS_CURL</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_current')])</field>
+                            </record>
+                        </field>
+                    </record>
 
-    <record id="bs_line_prep" model="account.report.line">
-        <field name="name">Prepayments</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_ca"/>
-        <field name="sequence">60</field>
-        <field name="code">BS_PREP</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_prep_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_prep"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'asset_prepayments')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
+                    <record id="bs_line_ncl" model="account.report.line">
+                        <field name="name">Non-current Liabilities</field>
+                        <field name="code">BS_NCL</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="aggregation_formula">BS_NCURL.balance</field>
+                        <field name="children_ids">
+                            <record id="bs_line_ncurl" model="account.report.line">
+                                <field name="name">Other Non-current Liabilities</field>
+                                <field name="code">BS_NCURL</field>
+                                <field name="foldable" eval="True"/>
+                                <field name="domain_formula">-sum([('account_id.account_type', '=', 'liability_non_current')])</field>
+                            </record>
+                        </field>
+                    </record>
 
-    <!-- Non-current Assets (seq 70–90) -->
-    <record id="bs_line_nca" model="account.report.line">
-        <field name="name">Non-current Assets</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_assets"/>
-        <field name="sequence">70</field>
-        <field name="code">BS_NCA</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_nca_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_nca"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_FIX.balance + BS_NCURA.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
+                </field>
+            </record>
 
-    <record id="bs_line_fix" model="account.report.line">
-        <field name="name">Fixed Assets</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_nca"/>
-        <field name="sequence">80</field>
-        <field name="code">BS_FIX</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_fix_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_fix"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'asset_fixed')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
+            <!-- ── EQUITY ──────────────────────────────────────────────── -->
+            <record id="bs_line_eq" model="account.report.line">
+                <field name="name">Equity</field>
+                <field name="code">BS_EQ</field>
+                <field name="foldable" eval="False"/>
+                <field name="aggregation_formula">BS_EQU.balance + BS_CYE.balance</field>
+                <field name="children_ids">
+                    <record id="bs_line_equ" model="account.report.line">
+                        <field name="name">Equity</field>
+                        <field name="code">BS_EQU</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="domain_formula">-sum([('account_id.account_type', '=', 'equity')])</field>
+                    </record>
+                    <record id="bs_line_cye" model="account.report.line">
+                        <field name="name">Current Year Earnings</field>
+                        <field name="code">BS_CYE</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="domain_formula">-sum([('account_id.account_type', '=', 'equity_unaffected')])</field>
+                    </record>
+                </field>
+            </record>
 
-    <record id="bs_line_ncura" model="account.report.line">
-        <field name="name">Other Non-current Assets</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_nca"/>
-        <field name="sequence">90</field>
-        <field name="code">BS_NCURA</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_ncura_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_ncura"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'asset_non_current')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
+            <!-- ── TOTAL ───────────────────────────────────────────────── -->
+            <record id="bs_line_total" model="account.report.line">
+                <field name="name">Total Liabilities &amp; Equity</field>
+                <field name="code">BS_TOTAL</field>
+                <field name="foldable" eval="False"/>
+                <field name="aggregation_formula">BS_LIAB.balance + BS_EQ.balance</field>
+            </record>
 
-    <!-- ── LIABILITIES (seq 100–160) ─────────────────────────────────────── -->
-    <record id="bs_line_liab" model="account.report.line">
-        <field name="name">Liabilities</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="sequence">100</field>
-        <field name="code">BS_LIAB</field>
-        <field name="foldable" eval="False"/>
-    </record>
-    <record id="bs_expr_liab_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_liab"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_CL.balance + BS_NCL.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <!-- Current Liabilities (seq 110–140) -->
-    <record id="bs_line_cl" model="account.report.line">
-        <field name="name">Current Liabilities</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_liab"/>
-        <field name="sequence">110</field>
-        <field name="code">BS_CL</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_cl_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_cl"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_PAY.balance + BS_CC.balance + BS_CURL.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <record id="bs_line_pay" model="account.report.line">
-        <field name="name">Payables</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_cl"/>
-        <field name="sequence">120</field>
-        <field name="code">BS_PAY</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_pay_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_pay"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'liability_payable')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <record id="bs_line_cc" model="account.report.line">
-        <field name="name">Credit Cards</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_cl"/>
-        <field name="sequence">130</field>
-        <field name="code">BS_CC</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_cc_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_cc"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'liability_credit_card')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <record id="bs_line_curl" model="account.report.line">
-        <field name="name">Other Current Liabilities</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_cl"/>
-        <field name="sequence">140</field>
-        <field name="code">BS_CURL</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_curl_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_curl"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'liability_current')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <!-- Non-current Liabilities (seq 150–160) -->
-    <record id="bs_line_ncl" model="account.report.line">
-        <field name="name">Non-current Liabilities</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_liab"/>
-        <field name="sequence">150</field>
-        <field name="code">BS_NCL</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_ncl_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_ncl"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_NCURL.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <record id="bs_line_ncurl" model="account.report.line">
-        <field name="name">Other Non-current Liabilities</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_ncl"/>
-        <field name="sequence">160</field>
-        <field name="code">BS_NCURL</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_ncurl_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_ncurl"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'liability_non_current')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <!-- ── EQUITY (seq 170–190) ───────────────────────────────────────────── -->
-    <record id="bs_line_eq" model="account.report.line">
-        <field name="name">Equity</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="sequence">170</field>
-        <field name="code">BS_EQ</field>
-        <field name="foldable" eval="False"/>
-    </record>
-    <record id="bs_expr_eq_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_eq"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_EQU.balance + BS_CYE.balance</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <record id="bs_line_equ" model="account.report.line">
-        <field name="name">Equity</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_eq"/>
-        <field name="sequence">180</field>
-        <field name="code">BS_EQU</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_equ_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_equ"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'equity')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <record id="bs_line_cye" model="account.report.line">
-        <field name="name">Current Year Earnings</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="parent_id" ref="bs_line_eq"/>
-        <field name="sequence">190</field>
-        <field name="code">BS_CYE</field>
-        <field name="foldable" eval="True"/>
-    </record>
-    <record id="bs_expr_cye_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_cye"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.account_type', '=', 'equity_unaffected')]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
-    </record>
-
-    <!-- ── TOTAL LIABILITIES + EQUITY (seq 200) ──────────────────────────── -->
-    <record id="bs_line_total" model="account.report.line">
-        <field name="name">Total Liabilities &amp; Equity</field>
-        <field name="report_id" ref="account_report_bs"/>
-        <field name="sequence">200</field>
-        <field name="code">BS_TOTAL</field>
-        <field name="foldable" eval="False"/>
-    </record>
-    <record id="bs_expr_total_balance" model="account.report.expression">
-        <field name="report_line_id" ref="bs_line_total"/>
-        <field name="label">balance</field>
-        <field name="engine">aggregation</field>
-        <field name="formula">BS_LIAB.balance + BS_EQ.balance</field>
-        <field name="figure_type">monetary</field>
+        </field>
     </record>
 </odoo>

@@ -36,18 +36,6 @@ class AccountReport(models.Model):
             'context': {'report_id': self.id},
         }
 
-    @api.model
-    def _odooer_reset_report(self, xmlid):
-        """Delete all lines (and cascade their expressions) for the given report
-        xml_id so that data loading can rebuild the structure from scratch.
-        Safe to call even if the xml_id doesn't exist yet (no-op in that case)."""
-        try:
-            report = self.env.ref(xmlid)
-        except ValueError:
-            return
-        report.line_ids.expression_ids.unlink()
-        report.line_ids.unlink()
-
     # -------------------------------------------------------------------------
     # Options helpers
     # -------------------------------------------------------------------------

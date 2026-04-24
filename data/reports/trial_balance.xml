@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo>
+<odoo auto_sequence="1">
     <!-- ═══════════════════════════════════════════════════════════════════════
          Trial Balance
     ═══════════════════════════════════════════════════════════════════════ -->
@@ -13,64 +13,54 @@
         <field name="availability_condition">always</field>
         <field name="default_opening_date_filter">this_year</field>
         <field name="load_more_limit">80</field>
-    </record>
-
-    <record id="account_report_tb_col_debit" model="account.report.column">
-        <field name="report_id" ref="account_report_tb"/>
-        <field name="name">Debit</field>
-        <field name="expression_label">debit</field>
-        <field name="figure_type">monetary</field>
-        <field name="sequence">10</field>
-    </record>
-
-    <record id="account_report_tb_col_credit" model="account.report.column">
-        <field name="report_id" ref="account_report_tb"/>
-        <field name="name">Credit</field>
-        <field name="expression_label">credit</field>
-        <field name="figure_type">monetary</field>
-        <field name="sequence">20</field>
-    </record>
-
-    <record id="account_report_tb_col_balance" model="account.report.column">
-        <field name="report_id" ref="account_report_tb"/>
-        <field name="name">Balance</field>
-        <field name="expression_label">balance</field>
-        <field name="figure_type">monetary</field>
-        <field name="sequence">30</field>
-    </record>
-
-    <!-- All Accounts line — groupby account_id for drill-down -->
-    <record id="tb_line_all" model="account.report.line">
-        <field name="name">All Accounts</field>
-        <field name="report_id" ref="account_report_tb"/>
-        <field name="sequence">10</field>
-        <field name="code">TB_ALL</field>
-        <field name="groupby">account_id</field>
-        <field name="foldable" eval="True"/>
-        <field name="hide_if_zero" eval="False"/>
-    </record>
-    <record id="tb_expr_all_debit" model="account.report.expression">
-        <field name="report_line_id" ref="tb_line_all"/>
-        <field name="label">debit</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.id', '!=', False)]</field>
-        <field name="subformula">debit</field>
-        <field name="figure_type">monetary</field>
-    </record>
-    <record id="tb_expr_all_credit" model="account.report.expression">
-        <field name="report_line_id" ref="tb_line_all"/>
-        <field name="label">credit</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.id', '!=', False)]</field>
-        <field name="subformula">credit</field>
-        <field name="figure_type">monetary</field>
-    </record>
-    <record id="tb_expr_all_balance" model="account.report.expression">
-        <field name="report_line_id" ref="tb_line_all"/>
-        <field name="label">balance</field>
-        <field name="engine">domain</field>
-        <field name="formula">[('account_id.id', '!=', False)]</field>
-        <field name="subformula">sum</field>
-        <field name="figure_type">monetary</field>
+        <field name="column_ids">
+            <record id="account_report_tb_col_debit" model="account.report.column">
+                <field name="name">Debit</field>
+                <field name="expression_label">debit</field>
+                <field name="figure_type">monetary</field>
+            </record>
+            <record id="account_report_tb_col_credit" model="account.report.column">
+                <field name="name">Credit</field>
+                <field name="expression_label">credit</field>
+                <field name="figure_type">monetary</field>
+            </record>
+            <record id="account_report_tb_col_balance" model="account.report.column">
+                <field name="name">Balance</field>
+                <field name="expression_label">balance</field>
+                <field name="figure_type">monetary</field>
+            </record>
+        </field>
+        <field name="line_ids">
+            <record id="tb_line_all" model="account.report.line">
+                <field name="name">All Accounts</field>
+                <field name="code">TB_ALL</field>
+                <field name="groupby">account_id</field>
+                <field name="foldable" eval="True"/>
+                <field name="hide_if_zero" eval="False"/>
+                <field name="expression_ids">
+                    <record id="tb_expr_all_debit" model="account.report.expression">
+                        <field name="label">debit</field>
+                        <field name="engine">domain</field>
+                        <field name="formula">[('account_id.id', '!=', False)]</field>
+                        <field name="subformula">debit</field>
+                        <field name="figure_type">monetary</field>
+                    </record>
+                    <record id="tb_expr_all_credit" model="account.report.expression">
+                        <field name="label">credit</field>
+                        <field name="engine">domain</field>
+                        <field name="formula">[('account_id.id', '!=', False)]</field>
+                        <field name="subformula">credit</field>
+                        <field name="figure_type">monetary</field>
+                    </record>
+                    <record id="tb_expr_all_balance" model="account.report.expression">
+                        <field name="label">balance</field>
+                        <field name="engine">domain</field>
+                        <field name="formula">[('account_id.id', '!=', False)]</field>
+                        <field name="subformula">sum</field>
+                        <field name="figure_type">monetary</field>
+                    </record>
+                </field>
+            </record>
+        </field>
     </record>
 </odoo>
