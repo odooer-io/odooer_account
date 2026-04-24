@@ -30,7 +30,15 @@ class AccountReportLine(models.Model):
 
     @api.depends('name', 'depth')
     def _compute_name_indented(self):
-        prefixes = ['', '\u00b7 ', '  \u00b7 ', '    \u00b7 ', '      \u00b7 ']
+        # Use non-breaking spaces (\u00a0) — regular spaces collapse in HTML
+        nb = '\u00a0'
+        prefixes = [
+            '',                    # depth 0: top section
+            f'\u00b7 ',            # depth 1: · name
+            f'{nb*2}\u00b7 ',      # depth 2: ··name
+            f'{nb*4}\u00b7 ',      # depth 3:     · name
+            f'{nb*6}\u00b7 ',      # depth 4:       · name
+        ]
         for line in self:
             idx = min(line.depth, len(prefixes) - 1)
             line.name_indented = prefixes[idx] + (line.name or '')
