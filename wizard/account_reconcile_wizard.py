@@ -51,13 +51,11 @@ class OdooerAccountReconcileWizard(models.TransientModel):
     writeoff_account_id = fields.Many2one(
         'account.account',
         string='Write-Off Account',
-        required=True,
         domain="[('account_type', 'not in', ['asset_receivable', 'liability_payable', 'off_balance'])]",
     )
     writeoff_journal_id = fields.Many2one(
         'account.journal',
         string='Journal',
-        required=True,
         domain="[('type', 'in', ['general', 'bank', 'cash'])]",
     )
     writeoff_label = fields.Char(string='Label', default='Write-Off')
@@ -84,6 +82,8 @@ class OdooerAccountReconcileWizard(models.TransientModel):
         self.ensure_one()
         if not self.account_id or not self.move_line_ids:
             raise UserError(_("Missing reconciliation data."))
+        if not self.writeoff_account_id:
+            raise UserError(_("Please select a Write-Off Account."))
 
         total_residual = sum(self.move_line_ids.mapped('amount_residual'))
         journal = self.writeoff_journal_id or self.env['account.journal'].search(

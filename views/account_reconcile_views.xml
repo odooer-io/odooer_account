@@ -21,9 +21,9 @@
                 </group>
 
                 <group string="Write-Off Details" col="2">
-                    <field name="writeoff_date"/>
+                    <field name="writeoff_date" required="1"/>
                     <field name="writeoff_journal_id"/>
-                    <field name="writeoff_account_id"/>
+                    <field name="writeoff_account_id" required="1"/>
                     <field name="writeoff_label"/>
                 </group>
 
