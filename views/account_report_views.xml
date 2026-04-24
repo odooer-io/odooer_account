@@ -1,5 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- ─── account.report.line form view ──────────────────────────────────── -->
+    <record id="view_odooer_report_line_form" model="ir.ui.view">
+        <field name="name">account.report.line.form.odooer</field>
+        <field name="model">account.report.line</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <form string="Report Line">
+                <sheet>
+                    <group>
+                        <group string="Identity">
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="hierarchy_level"/>
+                        </group>
+                        <group string="Display">
+                            <field name="foldable"/>
+                            <field name="hide_if_zero"/>
+                            <!-- groupby is irrelevant (and raises a constraint) when the
+                                 line has children; hide it so the user cannot set it. -->
+                            <field name="groupby" invisible="has_children"
+                                   placeholder="e.g. account_id or partner_id, id"/>
+                            <field name="has_children" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Formula" name="formula">
+                            <group>
+                                <field name="domain_formula"
+                                       invisible="has_children or aggregation_formula"
+                                       placeholder='sum([(&quot;account_id.account_type&quot;, &quot;=&quot;, &quot;asset_cash&quot;)])'/>
+                                <field name="aggregation_formula"
+                                       invisible="has_children or domain_formula"
+                                       placeholder="e.g. LINECODE1.balance + LINECODE2.balance"/>
+                            </group>
+                            <field name="expression_ids"
+                                   invisible="has_children or domain_formula or aggregation_formula">
+                                <list editable="bottom">
+                                    <field name="label"/>
+                                    <field name="engine"/>
+                                    <field name="formula"/>
+                                    <field name="subformula" optional="show"/>
+                                    <field name="date_scope" optional="show"/>
+                                    <field name="green_on_positive" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Children" name="children">
+                            <field name="children_ids">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name_indented" string="Name"/>
+                                    <field name="code"/>
+                                    <field name="groupby"/>
+                                    <field name="foldable"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <!-- ─── List view ────────────────────────────────────────────────────────── -->
     <record id="view_odooer_account_report_list" model="ir.ui.view">
         <field name="name">account.report.list.odooer</field>
@@ -38,11 +101,14 @@
                     <notebook>
                         <page string="Lines">
                             <field name="line_ids" widget="one2many">
-                                <list>
+                                <list decoration-bf="depth == 0"
+                                      decoration-info="depth == 1"
+                                      decoration-muted="depth >= 3">
                                     <field name="sequence" widget="handle"/>
-                                    <field name="name"/>
+                                    <field name="name_indented" string="Name"/>
                                     <field name="code"/>
-                                    <field name="hierarchy_level"/>
+                                    <field name="depth" column_invisible="1"/>
+                                    <field name="groupby" optional="show"/>
                                     <field name="foldable"/>
                                     <field name="hide_if_zero"/>
                                 </list>
