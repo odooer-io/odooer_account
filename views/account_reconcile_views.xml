@@ -1,4 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Placeholder — reconciliation UI will be added in the next phase -->
+
+    <!-- ── Wizard: form view ─────────────────────────────────────────────── -->
+    <record id="view_odooer_account_reconcile_wizard_form" model="ir.ui.view">
+        <field name="name">odooer.account.reconcile.wizard.form</field>
+        <field name="model">odooer.account.reconcile.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reconcile Journal Items">
+                <div class="alert alert-warning mb-3" role="alert">
+                    <strong>Write-Off Required</strong> — the selected journal items do not
+                    balance to zero. Please specify a write-off account to absorb the difference.
+                </div>
+
+                <group string="Reconciliation Summary" col="2">
+                    <field name="account_id" readonly="1"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="total_debit" readonly="1"/>
+                    <field name="total_credit" readonly="1"/>
+                    <field name="writeoff_amount" readonly="1" class="fw-bold"/>
+                </group>
+
+                <group string="Write-Off Details" col="2">
+                    <field name="writeoff_date"/>
+                    <field name="writeoff_journal_id"/>
+                    <field name="writeoff_account_id"/>
+                    <field name="writeoff_label"/>
+                </group>
+
+                <footer>
+                    <button name="action_reconcile" string="Reconcile" type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── Server action: Reconcile (bound to Journal Items list view) ─────── -->
+    <record id="action_reconcile_move_lines" model="ir.actions.server">
+        <field name="name">Reconcile</field>
+        <field name="group_ids" eval="[(4, ref('account.group_account_user'))]"/>
+        <field name="model_id" ref="account.model_account_move_line"/>
+        <field name="binding_model_id" ref="account.model_account_move_line"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = model.action_reconcile()</field>
+    </record>
+
 </odoo>

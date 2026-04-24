@@ -58,7 +58,7 @@
         </t>
 
         <!-- For named presets in range mode: show resolved dates as read-only -->
-        <t t-elif="not isSingleDate">
+        <t t-elif="!isSingleDate">
             <span class="small text-muted">
                 <t t-esc="dateFrom"/> → <t t-esc="dateTo"/>
             </span>
