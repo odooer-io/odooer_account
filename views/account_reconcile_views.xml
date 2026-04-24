@@ -20,11 +20,12 @@
                     <field name="reconcile_type" widget="radio" nolabel="1"/>
                 </group>
 
+                <div class="alert alert-info mb-2" role="alert"
+                     invisible="reconcile_type != 'writeoff'">
+                    A journal entry will be created to absorb the difference and fully close these items.
+                </div>
                 <group string="Write-Off Details" col="2"
                       invisible="reconcile_type != 'writeoff'">
-                    <div class="alert alert-info col-12 mb-2" role="alert">
-                        A journal entry will be created to absorb the difference and fully close these items.
-                    </div>
                     <field name="writeoff_date"/>
                     <field name="writeoff_journal_id"/>
                     <field name="writeoff_account_id"
