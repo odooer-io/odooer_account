@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo auto_sequence="1">
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         Balance Sheet
+    <!-- Pre-migration: remove auto-generated expressions (no XML IDs) that were
+         created by the old domain_formula shorthand on BS_CYE and BS_EQU.
+         These must be deleted before we insert named expression records below,
+         otherwise the (report_line_id, label) unique constraint fires. -->
+    <delete model="account.report.expression"
+            search="[('report_line_id.code', 'in', ['BS_CYE', 'BS_EQU'])]"/>
+
+
          auto_sequence="1" lets Odoo assign sequences by XML order so
          parents always sort before their children — no manual sequence needed.
     ═══════════════════════════════════════════════════════════════════════ -->
@@ -158,7 +164,7 @@
                 <field name="name">Equity</field>
                 <field name="code">BS_EQ</field>
                 <field name="foldable" eval="False"/>
-                <field name="aggregation_formula">BS_EQU.balance + BS_CYE.balance</field>
+                <field name="aggregation_formula">BS_EQU.balance + BS_CYE.balance + BS_PYE.balance</field>
                 <field name="children_ids">
                     <record id="bs_line_equ" model="account.report.line">
                         <field name="name">Equity</field>
@@ -167,12 +173,37 @@
                         <field name="foldable" eval="True"/>
                         <field name="domain_formula">-sum([('account_id.account_type', '=', 'equity')])</field>
                     </record>
+                    <!-- Current Year Earnings: net of income/expense from fiscal year start to As Of date -->
                     <record id="bs_line_cye" model="account.report.line">
                         <field name="name">Current Year Earnings</field>
                         <field name="code">BS_CYE</field>
                         <field name="groupby">account_id</field>
                         <field name="foldable" eval="True"/>
-                        <field name="domain_formula">-sum([('account_id.account_type', '=', 'equity_unaffected')])</field>
+                        <field name="expression_ids">
+                            <record id="bs_cye_balance" model="account.report.expression">
+                                <field name="label">balance</field>
+                                <field name="engine">domain</field>
+                                <field name="formula" eval="[('account_id.account_type', 'in', ['income', 'income_other', 'expense_direct_cost', 'expense', 'expense_depreciation', 'expense_other', 'equity_unaffected'])]"/>
+                                <field name="date_scope">from_fiscalyear</field>
+                                <field name="subformula">-sum</field>
+                            </record>
+                        </field>
+                    </record>
+                    <!-- Previous Years Earnings: cumulative net from start of time to beginning of fiscal year -->
+                    <record id="bs_line_pye" model="account.report.line">
+                        <field name="name">Previous Years Earnings</field>
+                        <field name="code">BS_PYE</field>
+                        <field name="groupby">account_id</field>
+                        <field name="foldable" eval="True"/>
+                        <field name="expression_ids">
+                            <record id="bs_pye_balance" model="account.report.expression">
+                                <field name="label">balance</field>
+                                <field name="engine">domain</field>
+                                <field name="formula" eval="[('account_id.account_type', 'in', ['income', 'income_other', 'expense_direct_cost', 'expense', 'expense_depreciation', 'expense_other', 'equity_unaffected'])]"/>
+                                <field name="date_scope">to_beginning_of_fiscalyear</field>
+                                <field name="subformula">-sum</field>
+                            </record>
+                        </field>
                     </record>
                 </field>
             </record>

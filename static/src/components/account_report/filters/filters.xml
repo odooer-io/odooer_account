@@ -4,6 +4,21 @@
 <t t-name="odooer_account.Filters">
     <div class="o_odooer_filters d-flex align-items-center gap-3 flex-wrap">
 
+        <!-- Period preset dropdown -->
+        <div class="d-flex align-items-center gap-1">
+            <label class="text-nowrap mb-0 small fw-semibold">Period</label>
+            <select class="form-select form-select-sm" style="width: auto;"
+                    t-att-value="currentFilter"
+                    t-on-change="onPresetChange">
+                <t t-foreach="allPresets" t-as="preset" t-key="preset.value">
+                    <option t-att-value="preset.value"
+                            t-att-selected="preset.value === currentFilter">
+                        <t t-esc="preset.label"/>
+                    </option>
+                </t>
+            </select>
+        </div>
+
         <!-- Single-date mode (Balance Sheet: "As of") -->
         <t t-if="isSingleDate">
             <div class="d-flex align-items-center gap-1">
@@ -18,8 +33,8 @@
             </div>
         </t>
 
-        <!-- Range mode (P&L, Trial Balance, etc.) -->
-        <t t-else="">
+        <!-- Range mode (P&amp;L, Trial Balance, etc.) — only show raw inputs for custom -->
+        <t t-elif="isCustomFilter">
             <div class="d-flex align-items-center gap-1">
                 <label class="text-nowrap mb-0 small fw-semibold">From</label>
                 <input
@@ -40,6 +55,13 @@
                     t-on-change="onDateToChange"
                 />
             </div>
+        </t>
+
+        <!-- For named presets in range mode: show resolved dates as read-only -->
+        <t t-elif="not isSingleDate">
+            <span class="small text-muted">
+                <t t-esc="dateFrom"/> → <t t-esc="dateTo"/>
+            </span>
         </t>
 
         <!-- Draft toggle -->
@@ -95,3 +117,4 @@
 </t>
 
 </templates>
+

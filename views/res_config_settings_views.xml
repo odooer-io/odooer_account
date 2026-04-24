@@ -1,5 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- ─── Unhide Fiscal Year End in Accounting Settings ────────────────── -->
+    <record id="view_res_config_settings_fiscalyear" model="ir.ui.view">
+        <field name="name">res.config.settings.fiscalyear.odooer</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="account.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Replace the hidden fiscalyear placeholder with actual content -->
+            <setting id="fiscalyear" position="replace">
+                <setting id="fiscalyear" string="Fiscal Year"
+                         help="Set the last day of your fiscal year. Affects reports that split Current Year Earnings from Previous Years Earnings.">
+                    <div class="content-group">
+                        <div class="row mt16">
+                            <label for="fiscalyear_last_month" string="Last Day"
+                                   class="col-lg-3 o_light_label"/>
+                            <div class="col-lg-9 d-flex gap-2">
+                                <field name="fiscalyear_last_month"/>
+                                <field name="fiscalyear_last_day"/>
+                            </div>
+                        </div>
+                    </div>
+                </setting>
+            </setting>
+        </field>
+    </record>
+
     <!-- ─── Lock Dates in Company Settings ───────────────────────────────── -->
     <record id="view_res_company_form_lock_dates" model="ir.ui.view">
         <field name="name">res.company.form.lock.dates.odooer</field>
@@ -18,3 +43,4 @@
         </field>
     </record>
 </odoo>
+

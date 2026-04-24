@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 from collections import defaultdict
+from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -40,6 +41,95 @@ class AccountReport(models.Model):
     # Options helpers
     # -------------------------------------------------------------------------
 
+    def _resolve_date_filter(self, filter_key, mode):
+        """Compute (date_from_str, date_to_str) for a named date preset.
+
+        Supported filter keys:
+          this_year, last_year, this_month, last_month, this_quarter,
+          today, YYYY (e.g. '2025'), YYYY-MM (e.g. '2026-01')
+        Returns (date_from, date_to) as ISO strings, or (False, today) fallback.
+        """
+        today = fields.Date.context_today(self)
+        company = self.env.company
+
+        if filter_key == 'today':
+            return (fields.Date.to_string(today) if mode == 'range' else False, fields.Date.to_string(today))
+
+        if filter_key == 'this_year':
+            fy = company.compute_fiscalyear_dates(today)
+            d_from = fy['date_from']
+            d_to = fy['date_to']
+            if mode == 'single':
+                return (False, fields.Date.to_string(d_to))
+            return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+
+        if filter_key == 'last_year':
+            last_year_date = today - relativedelta(years=1)
+            fy = company.compute_fiscalyear_dates(last_year_date)
+            d_from = fy['date_from']
+            d_to = fy['date_to']
+            if mode == 'single':
+                return (False, fields.Date.to_string(d_to))
+            return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+
+        if filter_key == 'this_month':
+            d_from = today.replace(day=1)
+            d_to = (d_from + relativedelta(months=1)) - datetime.timedelta(days=1)
+            if mode == 'single':
+                return (False, fields.Date.to_string(d_to))
+            return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+
+        if filter_key == 'last_month':
+            first_this = today.replace(day=1)
+            last_month_end = first_this - datetime.timedelta(days=1)
+            d_from = last_month_end.replace(day=1)
+            d_to = last_month_end
+            if mode == 'single':
+                return (False, fields.Date.to_string(d_to))
+            return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+
+        if filter_key == 'this_quarter':
+            m = today.month
+            q_start_month = ((m - 1) // 3) * 3 + 1
+            d_from = today.replace(month=q_start_month, day=1)
+            d_to = (d_from + relativedelta(months=3)) - datetime.timedelta(days=1)
+            if mode == 'single':
+                return (False, fields.Date.to_string(d_to))
+            return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+
+        # YYYY-MM → specific month
+        if filter_key and len(filter_key) == 7 and filter_key[4] == '-':
+            try:
+                year, month = int(filter_key[:4]), int(filter_key[5:])
+                d_from = datetime.date(year, month, 1)
+                d_to = (d_from + relativedelta(months=1)) - datetime.timedelta(days=1)
+                if mode == 'single':
+                    return (False, fields.Date.to_string(d_to))
+                return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+            except (ValueError, TypeError):
+                pass
+
+        # YYYY → specific year (fiscal)
+        if filter_key and len(filter_key) == 4 and filter_key.isdigit():
+            try:
+                year = int(filter_key)
+                ref_date = datetime.date(year, 6, 15)  # mid-year to hit fiscal year
+                fy = company.compute_fiscalyear_dates(ref_date)
+                # If the fiscal year end is in a different year, try to match year-end year
+                if fy['date_to'].year != year:
+                    ref_date = datetime.date(year, 12, 31)
+                    fy = company.compute_fiscalyear_dates(ref_date)
+                d_from = fy['date_from']
+                d_to = fy['date_to']
+                if mode == 'single':
+                    return (False, fields.Date.to_string(d_to))
+                return (fields.Date.to_string(d_from), fields.Date.to_string(d_to))
+            except (ValueError, TypeError):
+                pass
+
+        # custom / unknown: return what caller already has (no override)
+        return None
+
     def _get_options(self, previous_options=None):
         """Return a full options dict for this report, merging user-supplied values
         from *previous_options* over the report's defaults."""
@@ -48,18 +138,31 @@ class AccountReport(models.Model):
 
         # ── Date ──────────────────────────────────────────────────────────────
         today = fields.Date.context_today(self)
-        year_start = today.replace(month=1, day=1)
+        mode = 'range' if self.filter_date_range else 'single'
 
         if previous_options and previous_options.get('date'):
-            options['date'] = dict(previous_options['date'])
+            prev_date = dict(previous_options['date'])
+            # If a named filter is set, re-resolve dates (so Today/This Month auto-advance)
+            filter_key = prev_date.get('filter', 'custom')
+            if filter_key and filter_key != 'custom':
+                resolved = self._resolve_date_filter(filter_key, mode)
+                if resolved:
+                    prev_date['date_from'], prev_date['date_to'] = resolved
+            options['date'] = prev_date
         else:
-            # Balance sheet (filter_date_range=False) uses a single "as of" date;
-            # no date_from means the engine accumulates from the beginning of time.
+            default_filter = self.default_opening_date_filter or 'this_year'
+            resolved = self._resolve_date_filter(default_filter, mode)
+            if resolved:
+                date_from, date_to = resolved
+            else:
+                year_start = today.replace(month=1, day=1)
+                date_from = fields.Date.to_string(year_start) if mode == 'range' else False
+                date_to = fields.Date.to_string(today)
             options['date'] = {
-                'date_from': fields.Date.to_string(year_start) if self.filter_date_range else False,
-                'date_to': fields.Date.to_string(today),
-                'mode': 'range' if self.filter_date_range else 'single',
-                'filter': self.default_opening_date_filter or 'this_year',
+                'date_from': date_from,
+                'date_to': date_to,
+                'mode': mode,
+                'filter': default_filter,
             }
 
         # ── Comparison ────────────────────────────────────────────────────────
@@ -396,10 +499,11 @@ class AccountReport(models.Model):
     def _evaluate_expression(self, expr, options, all_values=None):
         """Dispatch expression evaluation to the appropriate engine."""
         engine = expr.engine
+        date_scope = expr.date_scope or 'strict_range'
         if engine == 'account_codes':
-            return self._engine_account_codes(expr.formula, options, expr.subformula)
+            return self._engine_account_codes(expr.formula, options, expr.subformula, date_scope=date_scope)
         elif engine == 'domain':
-            return self._engine_domain(expr.formula, options, expr.subformula)
+            return self._engine_domain(expr.formula, options, expr.subformula, date_scope=date_scope)
         elif engine == 'sum_children':
             return self._engine_sum_children(expr.report_line_id, options, all_values or {})
         elif engine == 'aggregation':
@@ -410,15 +514,57 @@ class AccountReport(models.Model):
             _logger.warning('Unsupported expression engine: %s', engine)
             return 0.0
 
+    def _resolve_date_scope(self, options, date_scope):
+        """Return (date_from, date_to) adjusted for the expression's date_scope.
+
+        date_scope values:
+          strict_range             - use options date exactly as-is
+          from_beginning           - date_from=None (from beginning of time)
+          from_fiscalyear          - date_from=fiscal year start, date_to unchanged
+          to_beginning_of_fiscalyear - date_from=None, date_to=day before fiscal year start
+          to_beginning_of_period   - date_from=None, date_to=options date_from - 1 day
+        """
+        date_from = options['date'].get('date_from') or None
+        date_to = options['date']['date_to']
+
+        if not date_scope or date_scope == 'strict_range':
+            return date_from, date_to
+
+        if date_scope == 'from_beginning':
+            return None, date_to
+
+        company = self.env.company
+        ref_date = fields.Date.from_string(date_to) if isinstance(date_to, str) else date_to
+
+        if date_scope == 'from_fiscalyear':
+            fy = company.compute_fiscalyear_dates(ref_date)
+            return fields.Date.to_string(fy['date_from']), date_to
+
+        if date_scope == 'to_beginning_of_fiscalyear':
+            fy = company.compute_fiscalyear_dates(ref_date)
+            fy_start = fy['date_from']
+            day_before = fy_start - datetime.timedelta(days=1)
+            return None, fields.Date.to_string(day_before)
+
+        if date_scope == 'to_beginning_of_period':
+            if date_from:
+                d = fields.Date.from_string(date_from) if isinstance(date_from, str) else date_from
+                day_before = d - datetime.timedelta(days=1)
+                return None, fields.Date.to_string(day_before)
+            return None, date_to
+
+        return date_from, date_to
+
     # ─── Engine: account_codes ─────────────────────────────────────────────────
 
-    def _engine_account_codes(self, formula, options, subformula=None):
+    def _engine_account_codes(self, formula, options, subformula=None, date_scope=None):
         """Sum AML balances by account code prefixes.
 
         Formula syntax: ``[+-]<prefix>[D|C]`` terms joined without spaces.
         Example: ``+1-2`` → (sum of accounts 1xx) minus (sum of accounts 2xx)
         Example: ``4000C`` → credit side only of accounts 4000xx
         """
+        eff_date_from, eff_date_to = self._resolve_date_scope(options, date_scope)
         total = 0.0
         for term_str in _CODES_SPLIT_RE.split(formula):
             if not term_str:
@@ -429,18 +575,19 @@ class AccountReport(models.Model):
             sign = -1.0 if m.group('sign') == '-' else 1.0
             prefix = m.group('prefix')
             balance_char = m.group('balance')  # 'D', 'C', or ''
-            total += sign * self._sum_account_prefix(prefix, balance_char, options)
+            total += sign * self._sum_account_prefix(prefix, balance_char, options, eff_date_from, eff_date_to)
         return total
 
-    def _sum_account_prefix(self, prefix, balance_char, options):
+    def _sum_account_prefix(self, prefix, balance_char, options, date_from=None, date_to=None):
         """Execute a SQL query to sum AML amounts for accounts matching *prefix*.
 
         In Odoo 19, account.account.code is a computed field backed by
         code_store (jsonb keyed by company ID string, e.g. {"1": "101000"}).
         We query code_store->>'<company_id>' for the root company.
         """
-        date_from = options['date'].get('date_from')
-        date_to = options['date']['date_to']
+        if date_from is None and date_to is None:
+            date_from = options['date'].get('date_from')
+            date_to = options['date']['date_to']
         company_ids = options.get('company_ids', [self.env.company.id])
         show_draft = options.get('show_draft', False)
 
@@ -488,7 +635,7 @@ class AccountReport(models.Model):
 
     # ─── Engine: domain ───────────────────────────────────────────────────────
 
-    def _engine_domain(self, formula, options, subformula=None):
+    def _engine_domain(self, formula, options, subformula=None, date_scope=None):
         """Evaluate a domain expression against account.move.line.
 
         subformula values:
@@ -505,8 +652,7 @@ class AccountReport(models.Model):
             _logger.warning('Could not parse domain formula: %s', formula)
             return 0.0
 
-        date_from = options['date'].get('date_from')
-        date_to = options['date']['date_to']
+        date_from, date_to = self._resolve_date_scope(options, date_scope)
         show_draft = options.get('show_draft', False)
         company_ids = options.get('company_ids', [self.env.company.id])
 
