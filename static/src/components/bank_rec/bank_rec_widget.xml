@@ -2,14 +2,26 @@
 <templates xml:space="preserve">
     <t t-name="odooer_account.BankRecWidget">
         <div class="o_odooer_bank_rec_widget d-flex h-100">
-            <div class="o_bank_rec_left_panel border-end" style="width:40%; overflow-y:auto;">
-                <BankRecTransactionList
-                    journalId="journalId"
-                    selectedLineId="state.selectedLineId"
-                    onSelect.bind="selectLine"
-                    onLineReconciled.bind="onLineReconciled"
-                    listVersion="state.listVersion"
-                />
+            <div class="o_bank_rec_left_panel border-end d-flex flex-column" style="width:42%;">
+                <WithSearch
+                    resModel="'account.bank.statement.line'"
+                    SearchModel="BankRecSearchModel"
+                    domain="baseDomain"
+                    dynamicFilters="dynamicFilters"
+                    searchViewId="false"
+                    searchMenuTypes="['search', 'filter', 'favorite']"
+                    t-slot-scope="search">
+                    <BankRecTransactionList
+                        domain="search.domain"
+                        journalId="state.journalId"
+                        status="state.status"
+                        onSetStatus.bind="setStatus"
+                        selectedLineId="state.selectedLineId"
+                        onSelect.bind="selectLine"
+                        onLineReconciled.bind="onLineReconciled"
+                        listVersion="state.listVersion"
+                    />
+                </WithSearch>
             </div>
             <div class="o_bank_rec_right_panel flex-grow-1" style="overflow-y:auto;">
                 <t t-if="state.loading">
@@ -18,7 +30,7 @@
                     </div>
                 </t>
                 <t t-elif="state.recData">
-                     <BankRecForm
+                    <BankRecForm
                         recData="state.recData"
                         onReconciled.bind="onLineReconciled"
                         onReloadData.bind="onReloadData"

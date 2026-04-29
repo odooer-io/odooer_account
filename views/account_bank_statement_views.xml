@@ -1,6 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- ─── Bank Statement Import wizard ─────────────────────────────────── -->
+    <!-- Search view for account.bank.statement.line used by bank rec widget -->
+    <record id="view_bank_statement_line_search" model="ir.ui.view">
+        <field name="name">account.bank.statement.line.search.odooer</field>
+        <field name="model">account.bank.statement.line</field>
+        <field name="arch" type="xml">
+            <search string="Search Transactions">
+                <field name="name" string="Statement Line"/>
+                <field name="payment_ref" string="Reference"/>
+                <field name="partner_id" string="Partner"/>
+                <field name="statement_id" string="Bank Statement"/>
+                <field name="journal_id" string="Journal"/>
+                <separator/>
+                <filter name="filter_unreconciled" string="Unreconciled"
+                    domain="[('is_reconciled','=',False)]"/>
+                <filter name="filter_reconciled" string="Reconciled"
+                    domain="[('is_reconciled','=',True)]"/>
+                <filter name="filter_to_check" string="To Review"
+                    domain="[('move_id.checked','=',False),('is_reconciled','=',False)]"/>
+                <separator/>
+                <filter name="filter_date" date="date" string="Date"/>
+            </search>
+        </field>
+    </record>
+
+
     <record id="view_odooer_bank_statement_import_form" model="ir.ui.view">
         <field name="name">odooer.account.bank.statement.import.form</field>
         <field name="model">odooer.account.bank.statement.import</field>

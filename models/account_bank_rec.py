@@ -21,6 +21,7 @@ class AccountJournal(models.Model):
             'context': {
                 'journal_id': self.id,
                 'default_journal_id': self.id,
+                'journal_name': self.name,
             },
         }
 
@@ -29,17 +30,13 @@ class AccountBankStatementLine(models.Model):
     _inherit = 'account.bank.statement.line'
 
     @api.model
-    def get_bank_rec_lines(self, journal_id, search_term='', show_reconciled=False, limit=50, offset=0):
-        """Returns statement lines for the bank rec widget left panel."""
-        domain = [('journal_id', '=', journal_id)]
-        if not show_reconciled:
-            domain += [('is_reconciled', '=', False)]
-        if search_term:
-            domain += ['|', '|',
-                ('payment_ref', 'ilike', search_term),
-                ('partner_id.name', 'ilike', search_term),
-                ('amount', '=', search_term),
-            ]
+    def get_bank_rec_lines(self, domain=None, limit=30, offset=0):
+        """Returns statement lines for the bank rec widget left panel.
+
+        domain: Odoo domain list (already fully computed by the JS SearchModel).
+        """
+        if domain is None:
+            domain = []
         lines = self.search(domain, limit=limit, offset=offset, order='date desc, id desc')
         total = self.search_count(domain)
         result = []
@@ -49,11 +46,13 @@ class AccountBankStatementLine(models.Model):
                 'date': fields.Date.to_string(line.date) if line.date else '',
                 'partner_name': line.partner_id.name or line.partner_name or '',
                 'payment_ref': line.payment_ref or '',
+                'move_name': line.move_id.name or '',
                 'amount': line.amount,
                 'currency_symbol': line.currency_id.symbol or '',
                 'is_reconciled': line.is_reconciled,
                 'to_check': not line.move_id.checked,
                 'statement_name': line.statement_id.name or '',
+                'journal_name': line.journal_id.name or '',
             })
         return {'lines': result, 'total': total}
 
@@ -69,10 +68,13 @@ class AccountBankStatementLine(models.Model):
                 'id': line.id,
                 'date': fields.Date.to_string(line.date) if line.date else '',
                 'move_name': line.move_id.name or '',
+                'partner_id': line.partner_id.id or False,
                 'partner_name': line.partner_id.name or '',
+                'account_id': line.account_id.id,
                 'account_name': line.account_id.name or '',
                 'account_code': line.account_id.display_name or '',
                 'label': line.name or '',
+                'balance': line.balance,
                 'debit': line.debit,
                 'credit': line.credit,
                 'amount_residual': line.amount_residual,
@@ -81,6 +83,8 @@ class AccountBankStatementLine(models.Model):
 
         return {
             'id': st_line.id,
+            'move_id': st_line.move_id.id,
+            'move_name': st_line.move_id.name or '',
             'date': fields.Date.to_string(st_line.date) if st_line.date else '',
             'partner_id': st_line.partner_id.id or False,
             'partner_name': st_line.partner_id.name or st_line.partner_name or '',
@@ -93,6 +97,9 @@ class AccountBankStatementLine(models.Model):
             'journal_name': st_line.journal_id.name or '',
             'statement_name': st_line.statement_id.name or '',
             'matched_lines': matched,
+            'transfer_account_id': st_line.company_id.transfer_account_id.id or False,
+            'transfer_account_name': st_line.company_id.transfer_account_id.name or '',
+            'transfer_account_code': st_line.company_id.transfer_account_id.code or '',
         }
 
     @api.model
@@ -114,11 +121,36 @@ class AccountBankStatementLine(models.Model):
 
     @api.model
     def update_partner(self, st_line_id, partner_id):
-        """Set or clear the partner on a statement line."""
+        """Set or clear the partner on a statement line.
+
+        Enterprise uses force_delete=True + _try_auto_reconcile_statement_lines.
+        We can't auto-reconcile, so we split by reconciliation state:
+
+        - Not reconciled: mirror enterprise's force_delete=True approach.
+          _synchronize_to_moves regenerates the default move lines (liquidity +
+          suspense) with the updated partner — correct and expected behaviour.
+
+        - Already reconciled: skip _synchronize_to_moves entirely so we don't
+          destroy the user's manual matching entries.  Update the underlying
+          move's partner_id directly (no line_ids touch needed).
+        """
         st_line = self.browse(st_line_id)
-        st_line.with_context(skip_readonly_check=True).write({
-            'partner_id': partner_id or False,
-        })
+        new_partner = partner_id or False
+        if st_line.is_reconciled:
+            # Preserve reconciled entries — bypass _synchronize_to_moves
+            st_line.with_context(skip_account_move_synchronization=True).write({
+                'partner_id': new_partner,
+            })
+            if st_line.move_id.partner_id.id != new_partner:
+                st_line.move_id.with_context(skip_readonly_check=True).write({
+                    'partner_id': new_partner,
+                })
+        else:
+            # Mirror enterprise: force_delete lets _synchronize_to_moves
+            # regenerate the liquidity/suspense lines with the new partner
+            st_line.with_context(force_delete=True, skip_readonly_check=True).write({
+                'partner_id': new_partner,
+            })
         return self.get_rec_data(st_line_id)
 
     @api.model
@@ -141,27 +173,43 @@ class AccountBankStatementLine(models.Model):
         return {'id': account.id, 'name': account.display_name, 'code': account.code}
 
     @api.model
-    def get_candidate_amls(self, st_line_id, search_term='', limit=20):
+    def get_candidate_amls(self, st_line_id, account_type=None,
+                           extra_domain=None,
+                           sort_field='date', sort_dir='desc',
+                           offset=0, limit=15):
         """Returns candidate journal entry lines for manual matching.
-        Automatically filters by partner when the statement line has one set.
+        Returns dict: {records: [...], total: int}.
+        extra_domain: additional ORM domain from the client-side SearchModel.
         """
+        SORT_FIELDS = {'date': 'date', 'amount': 'amount_residual', 'partner': 'partner_id', 'entry': 'move_id'}
+        sort_col = SORT_FIELDS.get(sort_field, 'date')
+        order = f'{sort_col} {sort_dir}, id desc'
+
         st_line = self.browse(st_line_id)
         domain = st_line._get_default_amls_matching_domain()
 
-        # Filter by partner when set (per user requirement)
-        if st_line.partner_id:
-            domain += [('partner_id', '=', st_line.partner_id.id)]
+        # Only show candidates that make sense for the statement direction:
+        # + statement (money in) needs debit candidates (Dr residual > 0)
+        # - statement (money out) needs credit candidates (Cr residual < 0)
+        if st_line.amount >= 0:
+            domain += [('amount_residual', '>', 0)]
+        else:
+            domain += [('amount_residual', '<', 0)]
 
-        if search_term:
-            domain += ['|', '|',
-                ('move_id.name', 'ilike', search_term),
-                ('partner_id.name', 'ilike', search_term),
-                ('name', 'ilike', search_term),
-            ]
-        amls = self.env['account.move.line'].search(domain, limit=limit, order='date desc')
-        result = []
+        # Filter by account type when requested (Receivable / Payable mode)
+        if account_type:
+            domain += [('account_id.account_type', '=', account_type)]
+
+        # Merge client-side search domain (partner, account, text search, etc.)
+        if extra_domain:
+            domain += [list(item) if isinstance(item, (list, tuple)) else item for item in extra_domain]
+
+        AmlModel = self.env['account.move.line']
+        total = AmlModel.search_count(domain)
+        amls = AmlModel.search(domain, limit=limit, offset=offset, order=order)
+        records = []
         for aml in amls:
-            result.append({
+            records.append({
                 'id': aml.id,
                 'date': fields.Date.to_string(aml.date) if aml.date else '',
                 'move_name': aml.move_id.name or '',
@@ -173,7 +221,7 @@ class AccountBankStatementLine(models.Model):
                 'amount_residual': aml.amount_residual,
                 'currency_symbol': aml.currency_id.symbol or '',
             })
-        return result
+        return {'records': records, 'total': total}
 
     @api.model
     def validate_rec_lines(self, st_line_id, pending_lines):
@@ -184,10 +232,12 @@ class AccountBankStatementLine(models.Model):
           - type 'account': {'type':'account', 'account_id':N, 'partner_id':N|False,
                               'label':str, 'amount':float}
 
-        Strategy: UPDATE existing suspense lines in-place where possible so the
-        chatter shows "Journal Item updated" (field diff) rather than delete+create.
-        Extra suspense lines are unlinked with force_delete; extra pending lines
-        beyond the suspense count are created as new move lines.
+        Enterprise approach: Command.set(keep_lines) + Command.create(new_lines).
+        The ORM batches all Command.create into a single create() call, so the
+        balance check fires once after ALL new lines exist — not per-command.
+        This is only safe because we write through move.line_ids (account.move.write),
+        which sets check_move_validity=False on the shared StackMap before processing
+        any commands, suppressing all nested balance checks during the operation.
         """
         st_line = self.browse(st_line_id)
 
@@ -195,22 +245,24 @@ class AccountBankStatementLine(models.Model):
             st_line.move_id.set_moves_checked(is_checked=True)
             return {'success': True}
 
-        _liq, suspense_lines, _other = st_line._seek_for_lines()
+        liquidity_lines, suspense_lines, other_lines = st_line._seek_for_lines()
 
-        # Direction: counterpart sign is opposite to the transaction amount.
-        # money in (amount > 0) → liquidity debit → counterpart is credit → negative amount_currency
+        # money in (amount >= 0) → liquidity debit → counterpart credit → negative balance
         counterpart_sign = -1 if (st_line.amount or 0) >= 0 else 1
 
-        # Step 1: Unlink reconciliation on suspense lines
+        # Remove reconciliation on existing suspense lines before replacing them
         suspense_lines.remove_move_reconcile()
 
-        # Step 2: Build per-pending-line vals + track which are AML type
+        # Lines to keep: liquidity + any existing non-suspense other lines
+        lines_to_set = liquidity_lines + other_lines
+
+        # Build new lines to create; track AML lines for the reconciliation step
         aml_map = {}
-        line_vals_list = []
+        lines_to_add = []
 
         for idx, pl in enumerate(pending_lines):
             user_amount = abs(float(pl.get('amount') or 0))
-            amount_currency = counterpart_sign * user_amount
+            balance = counterpart_sign * user_amount
 
             if pl['type'] == 'aml':
                 aml = self.env['account.move.line'].browse(int(pl['aml_id']))
@@ -222,37 +274,49 @@ class AccountBankStatementLine(models.Model):
                 partner_id = (int(pl['partner_id']) if pl.get('partner_id')
                               else (st_line.partner_id.id or False))
 
-            line_vals_list.append({
+            lines_to_add.append({
                 'account_id': account_id,
                 'partner_id': partner_id,
                 'name': pl.get('label') or st_line.payment_ref or '/',
-                'amount_currency': amount_currency,
+                'balance': balance,
+                'amount_currency': balance,
                 'currency_id': st_line.currency_id.id,
-                'debit': max(0.0, amount_currency),
-                'credit': max(0.0, -amount_currency),
             })
 
-        # Step 3: Match pending lines to existing suspense lines.
-        # UPDATE in-place → "Journal Item updated" in chatter (no delete/create).
-        # CREATE for extra pending lines beyond existing suspense count.
-        # UNLINK extra suspense lines if there are fewer pending lines than suspense lines.
-        suspense_list = list(suspense_lines)
-        line_cmds = []
+        # Calculate remaining open balance after matching lines are applied
+        open_balance = (
+            sum(l.balance for l in lines_to_set)
+            + sum(l['balance'] for l in lines_to_add)
+        )
 
-        for i, vals in enumerate(line_vals_list):
-            if i < len(suspense_list):
-                line_cmds.append(Command.update(suspense_list[i].id, vals))
-            else:
-                line_cmds.append(Command.create(vals))
+        # Command.set keeps the liquidity/other lines; suspense lines are removed.
+        # Command.create items are batched by the ORM into one create() call.
+        lines_commands = [Command.set(lines_to_set.ids)]
+        for line in lines_to_add:
+            lines_commands.append(Command.create(line))
 
-        for extra in suspense_list[len(line_vals_list):]:
-            line_cmds.append(Command.unlink(extra.id))
+        # If a residual balance remains, create a new suspense line for it
+        company_currency = st_line.company_id.currency_id
+        if not company_currency.is_zero(open_balance):
+            suspense_account = (st_line.journal_id.suspense_account_id
+                                or st_line.company_id.account_journal_suspense_account_id)
+            if suspense_account:
+                lines_commands.append(Command.create({
+                    'account_id': suspense_account.id,
+                    'partner_id': False,
+                    'name': st_line.payment_ref or '/',
+                    'balance': -open_balance,
+                    'amount_currency': -open_balance,
+                    'currency_id': st_line.currency_id.id,
+                }))
 
-        st_line.with_context(force_delete=True, skip_readonly_check=True).write({
-            'line_ids': line_cmds,
-        })
+        # Write through account.move so the outer _check_balanced sets
+        # check_move_validity=False on the StackMap before any command runs.
+        # All creates are batched → one balance check at the end when balanced.
+        move = st_line.move_id.with_context(force_delete=True, skip_readonly_check=True)
+        move.line_ids = lines_commands
 
-        # Step 4: Reconcile AML-type lines with their matching updated/created move lines
+        # Reconcile AML-type lines with their matching newly created move lines
         if aml_map:
             st_line.invalidate_recordset()
             _liq2, _sus2, new_other = st_line._seek_for_lines()
@@ -276,7 +340,8 @@ class AccountBankStatementLine(models.Model):
                                         new_line.id, aml.id, e)
 
         st_line.move_id.set_moves_checked(is_checked=True)
-        st_line._post_matching_message(_("Matching done"))
+        if company_currency.is_zero(open_balance):
+            st_line._post_matching_message(_("Matching done"))
         return {'success': True}
 
     def _post_matching_message(self, body):
@@ -299,4 +364,108 @@ class AccountBankStatementLine(models.Model):
         st_line = self.browse(st_line_id)
         st_line.action_undo_reconciliation()
         st_line._post_matching_message(_("Matching unreconciled"))
+        return {'success': True}
+
+    def apply_liquidity_transfer(self, st_line_id):
+        """Swaps the suspense account on the statement move with the company's
+        Inter-Banks Transfer Account.  No new journal entry is created."""
+        st_line = self.browse(st_line_id)
+        transfer_account = st_line.company_id.transfer_account_id
+        if not transfer_account:
+            return {'error': 'No Inter-Banks Transfer Account configured on company settings.'}
+
+        _liq, suspense_lines, _other = st_line._seek_for_lines()
+        if not suspense_lines:
+            return {'error': 'No suspense line found on this statement line.'}
+
+        for sline in suspense_lines:
+            sline.account_id = transfer_account
+
+        st_line.move_id._compute_checked()
+        st_line._post_matching_message(_(
+            "Liquidity transfer: suspense account replaced with %(account)s",
+            account=transfer_account.display_name,
+        ))
+        return self.get_rec_data(st_line_id)
+
+    def _adjust_suspense_after_line_change(self, st_line):
+        """Recalculate the open balance and adjust (or create/remove) the suspense line."""
+        st_line.invalidate_recordset()
+        liq, suspense, other = st_line._seek_for_lines()
+        open_balance = sum(l.balance for l in liq) + sum(l.balance for l in other)
+        company_currency = st_line.company_id.currency_id
+        move = st_line.move_id.with_context(force_delete=True, skip_readonly_check=True)
+        if not company_currency.is_zero(open_balance):
+            suspense_account = (st_line.journal_id.suspense_account_id
+                                or st_line.company_id.account_journal_suspense_account_id)
+            if suspense_account:
+                if suspense:
+                    move.write({'line_ids': [Command.update(suspense[0].id, {
+                        'balance': -open_balance,
+                        'amount_currency': -open_balance,
+                    })]})
+                else:
+                    move.write({'line_ids': [Command.create({
+                        'account_id': suspense_account.id,
+                        'balance': -open_balance,
+                        'amount_currency': -open_balance,
+                        'currency_id': st_line.currency_id.id,
+                        'name': st_line.payment_ref or '/',
+                    })]})
+        else:
+            if suspense:
+                move.write({'line_ids': [Command.delete(suspense[0].id)]})
+
+    @api.model
+    def delete_matched_line(self, st_line_id, line_id):
+        """Remove a counterpart line from an unmatched statement line."""
+        st_line = self.browse(st_line_id)
+        if st_line.is_reconciled:
+            return {'error': _('Transaction is already matched. Use Unmatch to modify it.')}
+        move = st_line.move_id.with_context(force_delete=True, skip_readonly_check=True)
+        move.write({'line_ids': [Command.delete(line_id)]})
+        self._adjust_suspense_after_line_change(st_line)
+        return self.get_rec_data(st_line_id)
+
+    @api.model
+    def edit_matched_line(self, st_line_id, line_id, label, amount=None):
+        """Edit a counterpart line. Label is always editable; amount only when unmatched."""
+        st_line = self.browse(st_line_id)
+        line = self.env['account.move.line'].browse(line_id)
+        vals = {'name': label or '/'}
+        if not st_line.is_reconciled and amount is not None:
+            vals['balance'] = float(amount)
+            vals['amount_currency'] = float(amount)
+        line.with_context(skip_readonly_check=True).write(vals)
+        if not st_line.is_reconciled and amount is not None:
+            self._adjust_suspense_after_line_change(st_line)
+        return self.get_rec_data(st_line_id)
+
+    @api.model
+    def edit_statement_line(self, st_line_id, date, payment_ref, amount):
+        """Edit a bank statement line. For unreconciled lines all fields are editable.
+        For reconciled lines only payment_ref is safe to change."""
+        st_line = self.browse(st_line_id)
+        if st_line.is_reconciled:
+            st_line.with_context(skip_readonly_check=True).write({
+                'payment_ref': payment_ref or '/',
+            })
+        else:
+            vals = {
+                'payment_ref': payment_ref or '/',
+            }
+            if date:
+                vals['date'] = date
+            if amount is not None:
+                vals['amount'] = float(amount)
+            st_line.with_context(force_delete=True, skip_readonly_check=True).write(vals)
+        return self.get_rec_data(st_line_id)
+
+    @api.model
+    def delete_statement_line(self, st_line_id):
+        """Delete a bank statement line. Only allowed when not yet reconciled."""
+        st_line = self.browse(st_line_id)
+        if st_line.is_reconciled:
+            return {'error': _('Cannot delete a reconciled statement line. Please undo reconciliation first.')}
+        st_line.with_context(force_delete=True).unlink()
         return {'success': True}

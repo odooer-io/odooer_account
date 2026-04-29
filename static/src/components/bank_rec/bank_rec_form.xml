@@ -7,14 +7,43 @@
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center py-2">
                     <h6 class="mb-0">Transaction</h6>
-                    <span t-if="recData.is_reconciled" class="badge bg-success">Reconciled</span>
-                    <span t-elif="recData.to_check" class="badge bg-warning text-dark">To Review</span>
-                    <span t-else="" class="badge bg-secondary">Unmatched</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" title="Open Journal Entry"
+                            t-on-click="openJournalEntry">
+                            <i class="fa fa-external-link me-1"/>
+                            <t t-esc="recData.move_name || 'Journal Entry'"/>
+                        </button>
+                        <t t-if="state.editTransactionMode">
+                            <button class="btn btn-sm btn-success" t-on-click="saveTransactionEdit"
+                                t-att-disabled="state.processing">
+                                <i class="fa fa-check me-1"/>Save
+                            </button>
+                            <button class="btn btn-sm btn-secondary" t-on-click="cancelTransactionEdit">
+                                Cancel
+                            </button>
+                        </t>
+                        <t t-else="">
+                            <button class="btn btn-sm btn-outline-primary px-2 py-1" title="Edit transaction"
+                                t-on-click="toggleTransactionEdit">
+                                <i class="fa fa-pencil me-1"/>Edit
+                            </button>
+                            <span t-if="recData.is_reconciled" class="badge bg-success">Matched</span>
+                            <span t-elif="recData.to_check" class="badge bg-warning text-dark">To Review</span>
+                            <span t-else="" class="badge bg-secondary">Unmatched</span>
+                        </t>
+                    </div>
                 </div>
                 <div class="card-body py-2">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1 me-3">
-                            <div class="mb-1 small text-muted"><t t-esc="recData.date"/></div>
+                            <!-- Date -->
+                            <t t-if="state.editTransactionMode and !recData.is_reconciled">
+                                <input type="date" class="form-control form-control-sm mb-1"
+                                    t-model="state.transactionDate"/>
+                            </t>
+                            <t t-else="">
+                                <div class="mb-1 small text-muted"><t t-esc="recData.date"/></div>
+                            </t>
 
                             <!-- Partner row -->
                             <div class="mb-2">
@@ -47,51 +76,165 @@
                                                 placeholder="Search partner..."
                                                 t-model="state.partnerSearch"
                                                 t-on-input="onPartnerSearchInput"
-                                                t-att-value="state.partnerSearch"/>
+                                                t-on-keydown="onPartnerKeydown"
+                                                t-on-blur="onPartnerSearchBlur"
+                                                t-on-focus="onPartnerSearchFocus"
+                                                t-att-value="state.partnerSearch"
+                                                autocomplete="off"/>
                                             <button class="btn btn-outline-secondary"
                                                 t-on-click="togglePartnerEdit">
                                                 <i class="fa fa-times"/>
                                             </button>
                                         </div>
-                                        <div t-if="state.partnerSuggestions.length > 0"
+                                        <div t-if="state.partnerDropdownOpen and state.partnerSearch.length >= 2"
                                             class="position-absolute bg-white border rounded shadow-sm w-100"
-                                            style="z-index:1000; top:100%; max-height:200px; overflow-y:auto">
+                                            style="z-index:1000; top:100%; max-height:200px; overflow-y:auto"
+                                            t-on-mousedown="(ev) => ev.preventDefault()">
                                             <div t-foreach="state.partnerSuggestions" t-as="p" t-key="p.id"
                                                 class="px-3 py-2 border-bottom cursor-pointer o_bank_rec_suggestion"
+                                                t-att-class="state.partnerActiveIndex === p_index ? 'bg-primary text-white' : ''"
+                                                t-on-mouseenter="() => state.partnerActiveIndex = p_index"
                                                 t-on-click="() => this.selectPartner(p)">
                                                 <t t-esc="p.name"/>
+                                            </div>
+                                            <div t-if="state.partnerLoading"
+                                                class="px-3 py-2 text-muted small">
+                                                <i class="fa fa-spin fa-circle-o-notch me-1"/>Searching…
+                                            </div>
+                                            <div class="px-3 py-2 cursor-pointer border-top o_bank_rec_suggestion"
+                                                t-att-class="state.partnerActiveIndex === state.partnerSuggestions.length ? 'bg-primary text-white' : 'text-primary'"
+                                                t-on-mouseenter="() => state.partnerActiveIndex = state.partnerSuggestions.length"
+                                                t-on-click="openPartnerSearchDialog">
+                                                <i class="fa fa-search me-1"/>Search more…
                                             </div>
                                         </div>
                                     </div>
                                 </t>
                             </div>
 
-                            <div class="text-muted small"><t t-esc="recData.payment_ref or '—'"/></div>
+                            <!-- Label -->
+                            <t t-if="state.editTransactionMode">
+                                <input type="text" class="form-control form-control-sm mt-1"
+                                    placeholder="Description"
+                                    t-model="state.transactionLabel"/>
+                            </t>
+                            <t t-else="">
+                                <div class="text-muted small"><t t-esc="recData.payment_ref or '—'"/></div>
+                            </t>
                         </div>
                         <!-- Amount -->
                         <div class="text-end">
-                            <div class="fs-5 fw-bold"
-                                t-attf-class="{{ recData.amount >= 0 ? 'text-success' : 'text-danger' }}">
-                                <t t-if="recData.amount >= 0">+</t><t t-esc="recData.amount.toFixed(2)"/>
-                                <small class="ms-1"><t t-esc="recData.currency_symbol"/></small>
-                            </div>
+                            <t t-if="state.editTransactionMode and !recData.is_reconciled">
+                                <input type="number" step="0.01" class="form-control form-control-sm text-end"
+                                    style="width:130px"
+                                    t-model="state.transactionAmount"/>
+                                <small class="text-muted"><t t-esc="recData.currency_symbol"/></small>
+                            </t>
+                            <t t-else="">
+                                <div class="fs-5 fw-bold"
+                                    t-attf-class="{{ recData.amount >= 0 ? 'text-success' : 'text-danger' }}">
+                                    <t t-if="recData.amount >= 0">+</t><t t-esc="recData.amount.toFixed(2)"/>
+                                    <small class="ms-1"><t t-esc="recData.currency_symbol"/></small>
+                                </div>
+                            </t>
                             <div class="small text-muted">
                                 Remaining: <t t-esc="remainingAmount.toFixed(2)"/>
                             </div>
                         </div>
                     </div>
 
-                    <!-- AR / AP quick-add buttons (shown when partner is set) -->
-                    <div t-if="recData.partner_id and !recData.is_reconciled" class="mt-2 d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-primary"
-                            t-on-click="() => this.addArApLine('asset_receivable')"
+                    <!-- ── Matched lines compact list (DB state) ──────── -->
+                    <t t-if="recData.matched_lines.length > 0">
+                        <div class="border-top mt-2 pt-2">
+                            <div class="text-muted small fw-semibold mb-1" style="font-size:0.7rem; letter-spacing:0.04em; text-transform:uppercase;">Matched Entries</div>
+                            <div t-foreach="recData.matched_lines" t-as="ml" t-key="ml.id"
+                                class="d-flex justify-content-between align-items-center small py-1">
+                                <div class="text-truncate flex-grow-1 me-2 text-muted">
+                                    <span class="fw-semibold"><t t-esc="ml.account_code"/></span>
+                                    <t t-if="ml.move_name"> · <t t-esc="ml.move_name"/></t>
+                                    <t t-if="ml.label"> — <t t-esc="ml.label"/></t>
+                                </div>
+                                <div class="d-flex align-items-center gap-1 ms-2 text-nowrap">
+                                    <t t-if="ml.debit > 0">
+                                        <span class="text-success fw-semibold">+<t t-esc="ml.debit.toFixed(2)"/></span>
+                                    </t>
+                                    <t t-else="">
+                                        <span class="text-danger fw-semibold">-<t t-esc="ml.credit.toFixed(2)"/></span>
+                                    </t>
+                                    <button class="btn btn-link btn-sm p-0 text-primary lh-1 ms-1"
+                                        title="Edit"
+                                        t-att-disabled="state.processing"
+                                        t-on-click="() => this.openEditServerLine(ml)">
+                                        <i class="fa fa-pencil" style="font-size:0.75rem"/>
+                                    </button>
+                                    <t t-if="!recData.is_reconciled">
+                                        <button class="btn btn-link btn-sm p-0 text-danger lh-1"
+                                            title="Delete"
+                                            t-att-disabled="state.processing"
+                                            t-on-click="() => this.deleteServerLine(ml.id)">×</button>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+
+                    <!-- ── Pending lines compact list (client-side) ───── -->
+                    <t t-if="!recData.is_reconciled and state.pendingLines.length > 0">
+                        <div class="border-top mt-2 pt-2">
+                            <div class="text-muted small fw-semibold mb-1" style="font-size:0.7rem; letter-spacing:0.04em; text-transform:uppercase;">Lines to Reconcile</div>
+                            <div t-foreach="state.pendingLines" t-as="pl" t-key="pl_index"
+                                class="d-flex justify-content-between align-items-center small py-1">
+                                <div class="text-truncate flex-grow-1 me-2">
+                                    <span class="fw-semibold text-muted"><t t-esc="pl.account_name"/></span>
+                                    <t t-if="pl.partner_name"> · <t t-esc="pl.partner_name"/></t>
+                                    <t t-if="pl.label"> — <t t-esc="pl.label"/></t>
+                                </div>
+                                <div class="d-flex align-items-center gap-1 ms-2 text-nowrap">
+                                    <span t-attf-class="badge {{ recData.amount >= 0 ? 'bg-danger' : 'bg-success' }} me-1"
+                                        style="font-size:0.65rem">
+                                        <t t-esc="recData.amount >= 0 ? 'Cr' : 'Dr'"/>
+                                    </span>
+                                    <span class="fw-semibold"><t t-esc="Math.abs(pl.amount).toFixed(2)"/></span>
+                                    <button class="btn btn-link btn-sm p-0 text-secondary lh-1"
+                                        title="Edit"
+                                        t-on-click="() => this.openEditLine(pl_index)">
+                                        <i class="fa fa-pencil" style="font-size:0.75rem"/>
+                                    </button>
+                                    <button class="btn btn-link btn-sm p-0 text-danger lh-1"
+                                        t-on-click="() => this.removePendingLine(pl_index)">×</button>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+
+                    <!-- ── Action buttons ─────────────────────────────── -->
+                    <div t-if="!recData.is_reconciled" class="mt-2 d-flex gap-2 flex-wrap border-top pt-2">
+                        <t t-if="recData.partner_id">
+                            <button class="btn btn-sm btn-outline-primary"
+                                t-on-click="() => this.addArApLine('asset_receivable')"
+                                t-att-disabled="state.processing">
+                                <i class="fa fa-arrow-down me-1"/>Receivable
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning"
+                                t-on-click="() => this.addArApLine('liability_payable')"
+                                t-att-disabled="state.processing">
+                                <i class="fa fa-arrow-up me-1"/>Payable
+                            </button>
+                        </t>
+                        <button t-attf-class="btn btn-sm {{ state.addMode === 'match_entry' ? 'btn-primary' : 'btn-outline-primary' }}"
+                            t-on-click="() => this.setAddMode('match_entry')"
                             t-att-disabled="state.processing">
-                            <i class="fa fa-arrow-down me-1"/>Receivable
+                            <i class="fa fa-link me-1"/>Match Entry
                         </button>
-                        <button class="btn btn-sm btn-outline-warning"
-                            t-on-click="() => this.addArApLine('liability_payable')"
+                        <button t-attf-class="btn btn-sm {{ state.addMode === 'liquidity_transfer' ? 'btn-warning' : 'btn-outline-warning' }}"
+                            t-on-click="setLiquidityTransferMode"
+                            t-att-disabled="state.processing or !recData.transfer_account_id">
+                            <i class="fa fa-exchange me-1"/>Liquidity Transfer
+                        </button>
+                        <button t-attf-class="btn btn-sm {{ state.addMode === 'set_account' ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                            t-on-click="() => this.setAddMode('set_account')"
                             t-att-disabled="state.processing">
-                            <i class="fa fa-arrow-up me-1"/>Payable
+                            <i class="fa fa-tag me-1"/>Set Account
                         </button>
                     </div>
                 </div>
@@ -103,205 +246,248 @@
                 <t t-esc="state.error"/>
             </div>
 
-            <!-- ── Already-matched lines (DB state) ──────────────────── -->
-            <div t-if="recData.matched_lines.length > 0" class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center py-2">
-                    <h6 class="mb-0 small">Matched Journal Items</h6>
-                    <button t-if="!recData.is_reconciled" class="btn btn-sm btn-outline-danger"
-                        t-on-click="unmatch" t-att-disabled="state.processing">
-                        <i class="fa fa-undo me-1"/>Unmatch All
-                    </button>
-                </div>
-                <div class="card-body p-0">
-                    <table class="table table-sm table-hover mb-0 small">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Account</th><th>Partner</th>
-                                <th>Label</th><th class="text-end">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr t-foreach="recData.matched_lines" t-as="ml" t-key="ml.id">
-                                <td><t t-esc="ml.account_code"/></td>
-                                <td><t t-esc="ml.partner_name"/></td>
-                                <td><t t-esc="ml.label"/></td>
-                                <td class="text-end">
-                                    <t t-if="ml.debit > 0">
-                                        <span class="text-success">+<t t-esc="ml.debit.toFixed(2)"/></span>
-                                    </t>
-                                    <t t-else="">
-                                        <span class="text-danger">-<t t-esc="ml.credit.toFixed(2)"/></span>
-                                    </t>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ── Pending lines (client-side, not yet applied) ───────── -->
-            <t t-if="!recData.is_reconciled">
-                <div t-if="state.pendingLines.length > 0" class="card mb-3">
-                    <div class="card-header py-2">
-                        <h6 class="mb-0 small">Lines to Reconcile</h6>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table table-sm mb-0 small">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Account</th><th>Partner</th>
-                                    <th>Label</th><th class="text-end">Amount</th><th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr t-foreach="state.pendingLines" t-as="pl" t-key="pl_index">
-                                    <td><t t-esc="pl.account_name"/></td>
-                                    <td class="text-truncate" style="max-width:90px"><t t-esc="pl.partner_name"/></td>
-                                    <td class="text-truncate" style="max-width:110px"><t t-esc="pl.label"/></td>
-                                    <td class="text-end fw-semibold"
-                                        t-attf-class="{{ pl.amount >= 0 ? 'text-success' : 'text-danger' }}">
-                                        <t t-esc="pl.amount.toFixed(2)"/>
-                                    </td>
-                                    <td class="text-center">
-                                        <button class="btn btn-link btn-sm p-0 text-danger"
-                                            t-on-click="() => this.removePendingLine(pl_index)">×</button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <!-- Running balance bar -->
-                        <div class="px-3 py-2 border-top d-flex justify-content-between small">
-                            <span class="text-muted">Remaining after reconciliation</span>
-                            <span t-attf-class="{{ isBalanced ? 'text-success fw-bold' : 'text-warning fw-bold' }}">
-                                <t t-esc="remainingAmount.toFixed(2)"/>
-                                <t t-esc="' ' + recData.currency_symbol"/>
-                                <t t-if="isBalanced"> ✓</t>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ── Add-line actions ────────────────────────────────── -->
+            <!-- ── Match Entry panel ──────────────────────────────────── -->
+            <t t-if="!recData.is_reconciled and state.addMode === 'match_entry'">
                 <div class="card mb-3">
-                    <div class="card-header py-2 d-flex gap-2">
-                        <button t-attf-class="btn btn-sm {{ state.addMode === 'match_entry' ? 'btn-primary' : 'btn-outline-primary' }}"
-                            t-on-click="() => this.setAddMode('match_entry')">
-                            <i class="fa fa-link me-1"/>Match Entry
-                        </button>
-                        <button t-attf-class="btn btn-sm {{ state.addMode === 'set_account' ? 'btn-secondary' : 'btn-outline-secondary' }}"
-                            t-on-click="() => this.setAddMode('set_account')">
-                            <i class="fa fa-tag me-1"/>Set Account
-                        </button>
+                    <!-- Card header: title + account-type filter pills -->
+                    <div class="card-header py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 small">Matching Entries
+                                <span t-if="state.candidatesTotal > 0" class="badge bg-secondary ms-1"
+                                    style="font-size:0.65rem"><t t-esc="state.candidatesTotal"/></span>
+                            </h6>
+                            <div class="d-flex gap-1 align-items-center">
+                                <!-- Account type quick filters -->
+                                <button t-attf-class="btn btn-xs {{ state.accountTypeFilter === null ? 'btn-secondary' : 'btn-outline-secondary' }}"
+                                    style="font-size:0.7rem; padding:1px 7px;"
+                                    t-on-click="() => this.setAccountTypeFilter(null)">All</button>
+                                <button t-attf-class="btn btn-xs {{ state.accountTypeFilter === 'asset_receivable' ? 'btn-primary' : 'btn-outline-primary' }}"
+                                    style="font-size:0.7rem; padding:1px 7px;"
+                                    t-on-click="() => this.setAccountTypeFilter('asset_receivable')">
+                                    <i class="fa fa-arrow-down"/>Rec
+                                </button>
+                                <button t-attf-class="btn btn-xs {{ state.accountTypeFilter === 'liability_payable' ? 'btn-warning' : 'btn-outline-warning' }}"
+                                    style="font-size:0.7rem; padding:1px 7px;"
+                                    t-on-click="() => this.setAccountTypeFilter('liability_payable')">
+                                    <i class="fa fa-arrow-up"/>Pay
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Native Odoo search bar with filter chips -->
+                        <SearchBar autofocus="false"/>
                     </div>
 
-                    <!-- Match existing entry panel -->
-                    <t t-if="state.addMode === 'match_entry'">
-                        <div class="card-body pb-2">
-                            <div class="input-group input-group-sm mb-2">
-                                <input type="search" class="form-control"
-                                    placeholder="Search by entry, partner, label…"
-                                    t-on-input="onCandidateSearchInput"/>
-                            </div>
-                            <t t-if="state.candidatesLoading">
-                                <div class="text-center py-2"><i class="fa fa-spin fa-spinner"/></div>
-                            </t>
-                            <t t-elif="state.candidates.length === 0">
-                                <p class="text-muted small mb-1">No matching entries found.</p>
-                            </t>
-                            <t t-else="">
-                                <table class="table table-sm table-hover mb-0 small">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Date</th><th>Entry</th><th>Partner</th>
-                                            <th>Account</th><th class="text-end">Balance</th><th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr t-foreach="state.candidates" t-as="c" t-key="c.id"
-                                            t-attf-class="{{ state.pendingLines.some(l => l.aml_id === c.id) ? 'table-success' : '' }}">
-                                            <td><t t-esc="c.date"/></td>
-                                            <td><t t-esc="c.move_name"/></td>
-                                            <td><t t-esc="c.partner_name"/></td>
-                                            <td><t t-esc="c.account_display"/></td>
-                                            <td class="text-end"><t t-esc="c.amount_residual.toFixed(2)"/></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-primary py-0"
-                                                    t-on-click="() => this.addAmlLine(c)"
-                                                    t-att-disabled="state.pendingLines.some(l => l.aml_id === c.id)">
-                                                    + Add
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </t>
-                        </div>
-                    </t>
+                    <!-- Results table -->
+                    <div class="card-body p-0">
+                        <t t-if="state.candidatesLoading">
+                            <div class="text-center py-3"><i class="fa fa-spin fa-spinner fa-lg text-muted"/></div>
+                        </t>
+                        <t t-elif="state.candidates.length === 0">
+                            <p class="text-muted small mb-0 p-3">No matching entries found.</p>
+                        </t>
+                        <t t-else="">
+                            <table class="table table-sm table-hover mb-0 small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <!-- Sortable column headers -->
+                                        <th class="cursor-pointer user-select-none ps-3"
+                                            style="cursor:pointer; white-space:nowrap;"
+                                            t-on-click="() => this.sortCandidates('date')">
+                                            Date
+                                            <i t-attf-class="fa fa-sort{{ state.candidateSortField === 'date' ? (state.candidateSortDir === 'asc' ? '-asc' : '-desc') : '' }} ms-1 text-muted" style="font-size:0.7rem;"/>
+                                        </th>
+                                        <th class="cursor-pointer user-select-none"
+                                            style="cursor:pointer; white-space:nowrap;"
+                                            t-on-click="() => this.sortCandidates('entry')">
+                                            Entry
+                                            <i t-attf-class="fa fa-sort{{ state.candidateSortField === 'entry' ? (state.candidateSortDir === 'asc' ? '-asc' : '-desc') : '' }} ms-1 text-muted" style="font-size:0.7rem;"/>
+                                        </th>
+                                        <th class="cursor-pointer user-select-none"
+                                            style="cursor:pointer; white-space:nowrap;"
+                                            t-on-click="() => this.sortCandidates('partner')">
+                                            Partner
+                                            <i t-attf-class="fa fa-sort{{ state.candidateSortField === 'partner' ? (state.candidateSortDir === 'asc' ? '-asc' : '-desc') : '' }} ms-1 text-muted" style="font-size:0.7rem;"/>
+                                        </th>
+                                        <th>Account</th>
+                                        <th class="text-end cursor-pointer user-select-none"
+                                            style="cursor:pointer; white-space:nowrap;"
+                                            t-on-click="() => this.sortCandidates('amount')">
+                                            <t t-esc="recData.amount >= 0 ? 'Dr Bal.' : 'Cr Bal.'"/>
+                                            <i t-attf-class="fa fa-sort{{ state.candidateSortField === 'amount' ? (state.candidateSortDir === 'asc' ? '-asc' : '-desc') : '' }} ms-1 text-muted" style="font-size:0.7rem;"/>
+                                        </th>
+                                        <th style="width:1px;"/>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="state.candidates" t-as="c" t-key="c.id"
+                                        t-attf-class="{{ state.pendingLines.some(l => l.aml_id === c.id) ? 'table-success' : '' }}">
+                                        <td class="ps-3 text-nowrap"><t t-esc="c.date"/></td>
+                                        <td class="text-nowrap"><t t-esc="c.move_name"/></td>
+                                        <td><t t-esc="c.partner_name"/></td>
+                                        <td class="text-muted" style="font-size:0.75rem; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" t-att-title="c.account_display"><t t-esc="c.account_display"/></td>
+                                        <td class="text-end text-nowrap"><t t-esc="Math.abs(c.amount_residual).toFixed(2)"/></td>
+                                        <td class="pe-2">
+                                            <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                                style="font-size:0.75rem;"
+                                                t-on-click="() => this.addAmlLine(c)"
+                                                t-att-disabled="state.pendingLines.some(l => l.aml_id === c.id)">
+                                                <i class="fa fa-plus"/>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
 
-                    <!-- Set account directly panel -->
-                    <t t-if="state.addMode === 'set_account'">
-                        <div class="card-body">
-                            <div class="row g-2">
-                                <div class="col-12">
-                                    <label class="form-label small mb-1">Account</label>
-                                    <div class="position-relative">
-                                        <input type="text" class="form-control form-control-sm"
-                                            placeholder="Search account…"
-                                            t-model="state.accountSearch"
-                                            t-on-input="onAccountSearchInput"/>
-                                        <div t-if="state.accountSuggestions.length > 0"
-                                            class="position-absolute bg-white border rounded shadow-sm w-100"
-                                            style="z-index:1000; top:100%; max-height:180px; overflow-y:auto">
-                                            <div t-foreach="state.accountSuggestions" t-as="a" t-key="a.id"
-                                                class="px-3 py-2 border-bottom o_bank_rec_suggestion"
-                                                t-on-click="() => this.selectAccount(a)">
-                                                <t t-esc="a.name"/>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small mb-1">Amount</label>
-                                    <input type="number" step="0.01" class="form-control form-control-sm"
-                                        placeholder="0.00"
-                                        t-model="state.accountAmount"
-                                        t-on-input="onAccountAmountInput"/>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label small mb-1">Label</label>
+                            <!-- Native Odoo pager -->
+                            <div t-if="state.candidatesTotal > state.candidateLimit"
+                                class="d-flex justify-content-center py-1 border-top bg-light">
+                                <Pager
+                                    offset="state.candidateOffset"
+                                    limit="state.candidateLimit"
+                                    total="state.candidatesTotal"
+                                    onUpdate="(d) => this.onCandidatePagerUpdate(d)"
+                                    isEditable="false"
+                                    withAccessKey="false"
+                                />
+                            </div>
+                        </t>
+                    </div>
+                </div>
+            </t>
+
+            <!-- ── Liquidity Transfer panel ───────────────────────────── -->
+            <t t-if="!recData.is_reconciled and state.addMode === 'liquidity_transfer'">
+                <div class="card mb-3 border-warning">
+                    <div class="card-header py-2 bg-warning bg-opacity-10">
+                        <h6 class="mb-0 small">
+                            <i class="fa fa-exchange me-1 text-warning"/>Liquidity Transfer
+                            <small class="text-muted ms-2 fw-normal">Replaces suspense with the bridge account</small>
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="small">
+                                <span class="text-muted me-1">Transfer account:</span>
+                                <strong><t t-esc="recData.transfer_account_code"/> <t t-esc="recData.transfer_account_name"/></strong>
+                            </div>
+                            <button class="btn btn-sm btn-warning"
+                                t-on-click="applyLiquidityTransfer"
+                                t-att-disabled="state.processing">
+                                <i t-if="state.processing" class="fa fa-spin fa-circle-o-notch me-1"/>
+                                <i t-else="" class="fa fa-exchange me-1"/>
+                                Apply Transfer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- ── Set Account panel ──────────────────────────────────── -->
+            <t t-if="!recData.is_reconciled and state.addMode === 'set_account'">
+                <div class="card mb-3">
+                    <div class="card-header py-2">
+                        <h6 class="mb-0 small">Set Account</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label small mb-1">Account</label>
+                                <div class="position-relative">
                                     <input type="text" class="form-control form-control-sm"
-                                        placeholder="Description"
-                                        t-model="state.accountLabel"
-                                        t-on-input="onAccountLabelInput"/>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label small mb-1">Partner (optional)</label>
-                                    <div class="position-relative">
-                                        <input type="text" class="form-control form-control-sm"
-                                            placeholder="Search partner…"
-                                            t-model="state.accountPartnerSearch"
-                                            t-on-input="onAccountPartnerSearchInput"/>
-                                        <div t-if="state.accountPartnerSuggestions.length > 0"
-                                            class="position-absolute bg-white border rounded shadow-sm w-100"
-                                            style="z-index:1000; top:100%; max-height:160px; overflow-y:auto">
-                                            <div t-foreach="state.accountPartnerSuggestions" t-as="p" t-key="p.id"
-                                                class="px-3 py-2 border-bottom o_bank_rec_suggestion"
-                                                t-on-click="() => this.selectAccountPartner(p)">
-                                                <t t-esc="p.name"/>
-                                            </div>
+                                        placeholder="Search account…"
+                                        t-model="state.accountSearch"
+                                        t-on-input="onAccountSearchInput"
+                                        t-on-keydown="onAccountKeydown"
+                                        t-on-blur="onAccountSearchBlur"
+                                        t-on-focus="onAccountSearchFocus"
+                                        autocomplete="off"/>
+                                    <div t-if="state.accountDropdownOpen and state.accountSearch.length >= 2"
+                                        class="position-absolute bg-white border rounded shadow-sm w-100"
+                                        style="z-index:1000; top:100%; max-height:200px; overflow-y:auto"
+                                        t-on-mousedown="(ev) => ev.preventDefault()">
+                                        <div t-foreach="state.accountSuggestions" t-as="a" t-key="a.id"
+                                            class="px-3 py-2 border-bottom cursor-pointer o_bank_rec_suggestion"
+                                            t-att-class="state.accountActiveIndex === a_index ? 'bg-primary text-white' : ''"
+                                            t-on-mouseenter="() => state.accountActiveIndex = a_index"
+                                            t-on-click="() => this.selectAccount(a)">
+                                            <t t-esc="a.name"/>
+                                        </div>
+                                        <div t-if="state.accountLoading"
+                                            class="px-3 py-2 text-muted small">
+                                            <i class="fa fa-spin fa-circle-o-notch me-1"/>Searching…
+                                        </div>
+                                        <div class="px-3 py-2 cursor-pointer border-top o_bank_rec_suggestion"
+                                            t-att-class="state.accountActiveIndex === state.accountSuggestions.length ? 'bg-primary text-white' : 'text-primary'"
+                                            t-on-mouseenter="() => state.accountActiveIndex = state.accountSuggestions.length"
+                                            t-on-click="openAccountSearchDialog">
+                                            <i class="fa fa-search me-1"/>Search more…
                                         </div>
                                     </div>
-                                </div>
-                                <div class="col-12 text-end">
-                                    <button class="btn btn-sm btn-secondary"
-                                        t-on-click="addAccountLine">
-                                        <i class="fa fa-plus me-1"/>Add Line
-                                    </button>
                                 </div>
                             </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">
+                                    Amount
+                                    <span t-attf-class="badge {{ recData.amount >= 0 ? 'bg-danger' : 'bg-success' }} ms-1"
+                                        style="font-size:0.6rem">
+                                        <t t-esc="recData.amount >= 0 ? 'Cr' : 'Dr'"/> side
+                                    </span>
+                                </label>
+                                <input type="number" step="0.01" min="0.01" class="form-control form-control-sm"
+                                    placeholder="0.00"
+                                    t-model="state.accountAmount"
+                                    t-on-input="onAccountAmountInput"/>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Label</label>
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Description"
+                                    t-model="state.accountLabel"
+                                    t-on-input="onAccountLabelInput"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small mb-1">Partner (optional)</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control form-control-sm"
+                                        placeholder="Search partner…"
+                                        t-model="state.accountPartnerSearch"
+                                        t-on-input="onAccountPartnerSearchInput"
+                                        t-on-keydown="onAccountPartnerKeydown"
+                                        t-on-blur="onAccountPartnerSearchBlur"
+                                        t-on-focus="onAccountPartnerSearchFocus"
+                                        autocomplete="off"/>
+                                    <div t-if="state.accountPartnerDropdownOpen and state.accountPartnerSearch.length >= 2"
+                                        class="position-absolute bg-white border rounded shadow-sm w-100"
+                                        style="z-index:1000; top:100%; max-height:200px; overflow-y:auto"
+                                        t-on-mousedown="(ev) => ev.preventDefault()">
+                                        <div t-foreach="state.accountPartnerSuggestions" t-as="p" t-key="p.id"
+                                            class="px-3 py-2 border-bottom cursor-pointer o_bank_rec_suggestion"
+                                            t-att-class="state.accountPartnerActiveIndex === p_index ? 'bg-primary text-white' : ''"
+                                            t-on-mouseenter="() => state.accountPartnerActiveIndex = p_index"
+                                            t-on-click="() => this.selectAccountPartner(p)">
+                                            <t t-esc="p.name"/>
+                                        </div>
+                                        <div class="px-3 py-2 cursor-pointer border-top o_bank_rec_suggestion"
+                                            t-att-class="state.accountPartnerActiveIndex === state.accountPartnerSuggestions.length ? 'bg-primary text-white' : 'text-primary'"
+                                            t-on-mouseenter="() => state.accountPartnerActiveIndex = state.accountPartnerSuggestions.length"
+                                            t-on-click="openAccountPartnerSearchDialog">
+                                            <i class="fa fa-search me-1"/>Search more…
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 text-end">
+                                <button class="btn btn-sm btn-secondary"
+                                    t-on-click="addAccountLine">
+                                    <i class="fa fa-plus me-1"/>Add Line
+                                </button>
+                            </div>
                         </div>
-                    </t>
+                    </div>
                 </div>
+            </t>
+
+            <t t-if="!recData.is_reconciled">
 
                 <!-- ── Footer actions ─────────────────────────────────── -->
                 <div class="d-flex justify-content-between align-items-center">
@@ -316,6 +502,12 @@
                                 (<t t-esc="state.pendingLines.length"/>)
                             </t>
                         </t>
+                    </button>
+                    <button t-if="!recData.is_reconciled"
+                        class="btn btn-outline-danger btn-sm"
+                        t-on-click="deleteStatementLine"
+                        t-att-disabled="state.processing">
+                        <i class="fa fa-trash me-1"/>Delete
                     </button>
 
                     <div class="d-flex gap-2">
@@ -335,13 +527,138 @@
                 </div>
             </t>
 
-            <!-- ── Already reconciled: just show undo ────────────────── -->
+            <!-- ── Already matched: just show undo ──────────────────── -->
             <t t-if="recData.is_reconciled">
                 <button class="btn btn-outline-warning btn-sm"
                     t-on-click="unmatch" t-att-disabled="state.processing">
-                    <i class="fa fa-undo me-1"/>Undo Reconciliation
+                    <i class="fa fa-undo me-1"/>Unmatch
                 </button>
             </t>
+
+            <!-- ── Edit Line Modal ────────────────────────────────────── -->
+            <div t-if="state.editModalOpen"
+                class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                style="z-index:2000; background:rgba(0,0,0,0.45)">
+                <div class="bg-white rounded shadow p-3" style="min-width:320px; max-width:440px; width:90%">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0 fw-semibold">Edit Line</h6>
+                        <button class="btn-close btn-sm" t-on-click="closeEditModal"/>
+                    </div>
+
+                    <!-- AML type: amount only -->
+                    <t t-if="state.editModalType === 'aml'">
+                        <div class="mb-2 text-muted small">Adjust the partial reconcile amount (positive value):</div>
+                        <div class="mb-3">
+                            <label class="form-label small mb-1">Amount</label>
+                            <input type="number" step="0.01" min="0.01" class="form-control form-control-sm"
+                                placeholder="0.00"
+                                t-model="state.editModalAmlAmount"/>
+                        </div>
+                    </t>
+
+                    <!-- Account type: full edit (reuses Set Account state) -->
+                    <t t-if="state.editModalType === 'account'">
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Account</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Search account…"
+                                    t-model="state.accountSearch"
+                                    t-on-input="onAccountSearchInput"
+                                    t-on-keydown="onAccountKeydown"
+                                    t-on-focus="onAccountSearchFocus"
+                                    t-on-blur="onAccountSearchBlur"
+                                    autocomplete="off"/>
+                                <div t-if="state.accountDropdownOpen and state.accountSearch.length >= 2"
+                                    class="position-absolute bg-white border rounded shadow-sm w-100"
+                                    style="z-index:2100; top:100%; max-height:200px; overflow-y:auto"
+                                    t-on-mousedown="(ev) => ev.preventDefault()">
+                                    <div t-foreach="state.accountSuggestions" t-as="a" t-key="a.id"
+                                        class="px-3 py-2 border-bottom cursor-pointer o_bank_rec_suggestion"
+                                        t-att-class="state.accountActiveIndex === a_index ? 'bg-primary text-white' : ''"
+                                        t-on-mouseenter="() => state.accountActiveIndex = a_index"
+                                        t-on-click="() => this.selectAccount(a)">
+                                        <t t-esc="a.name"/>
+                                    </div>
+                                    <div t-if="state.selectedAccount" class="px-3 py-1 text-muted small border-bottom">
+                                        <i class="fa fa-check me-1 text-success"/><t t-esc="state.selectedAccount.name"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div t-if="state.selectedAccount" class="small text-success mt-1">
+                                <i class="fa fa-check me-1"/><t t-esc="state.selectedAccount.name"/>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Amount</label>
+                                <input type="number" step="0.01" class="form-control form-control-sm"
+                                    placeholder="0.00"
+                                    t-model="state.accountAmount"/>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">Label</label>
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Description"
+                                    t-model="state.accountLabel"/>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Partner (optional)</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control form-control-sm"
+                                    placeholder="Search partner…"
+                                    t-model="state.accountPartnerSearch"
+                                    t-on-input="onAccountPartnerSearchInput"
+                                    t-on-keydown="onAccountPartnerKeydown"
+                                    t-on-focus="onAccountPartnerSearchFocus"
+                                    t-on-blur="onAccountPartnerSearchBlur"
+                                    autocomplete="off"/>
+                                <div t-if="state.accountPartnerDropdownOpen and state.accountPartnerSearch.length >= 2"
+                                    class="position-absolute bg-white border rounded shadow-sm w-100"
+                                    style="z-index:2100; top:100%; max-height:200px; overflow-y:auto"
+                                    t-on-mousedown="(ev) => ev.preventDefault()">
+                                    <div t-foreach="state.accountPartnerSuggestions" t-as="p" t-key="p.id"
+                                        class="px-3 py-2 border-bottom cursor-pointer o_bank_rec_suggestion"
+                                        t-att-class="state.accountPartnerActiveIndex === p_index ? 'bg-primary text-white' : ''"
+                                        t-on-mouseenter="() => state.accountPartnerActiveIndex = p_index"
+                                        t-on-click="() => this.selectAccountPartner(p)">
+                                        <t t-esc="p.name"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div t-if="state.selectedAccountPartner" class="small text-success mt-1">
+                                <i class="fa fa-check me-1"/><t t-esc="state.selectedAccountPartner.name"/>
+                            </div>
+                        </div>
+                    </t>
+
+                    <!-- Matched entry (server_line) type: label always, amount when unmatched -->
+                    <t t-if="state.editModalType === 'server_line'">
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Label</label>
+                            <input type="text" class="form-control form-control-sm"
+                                placeholder="Description"
+                                t-model="state.accountLabel"/>
+                        </div>
+                        <t t-if="!recData.is_reconciled">
+                            <div class="mb-2">
+                                <label class="form-label small mb-1">Amount</label>
+                                <input type="number" step="0.01" class="form-control form-control-sm"
+                                    placeholder="0.00"
+                                    t-model="state.accountAmount"/>
+                            </div>
+                        </t>
+                    </t>
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button class="btn btn-sm btn-secondary" t-on-click="closeEditModal">Cancel</button>
+                        <button class="btn btn-sm btn-primary" t-on-click="confirmEditLine">
+                            <i class="fa fa-check me-1"/>Save
+                        </button>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </t>

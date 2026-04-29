@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Add "Allow Reconciliation" to the account.account form view.
+         CE intentionally omits it from the form (it exists only in the list).
+         We restore it here so users can toggle it without going to the list. -->
+    <record id="view_account_form_reconcile" model="ir.ui.view">
+        <field name="name">account.account.form.reconcile</field>
+        <field name="model">account.account</field>
+        <field name="inherit_id" ref="account.view_account_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='active']" position="after">
+                <field name="reconcile" widget="boolean_toggle"
+                       invisible="account_type in ('asset_cash', 'liability_credit_card', 'off_balance')"
+                       string="Allow Reconciliation"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

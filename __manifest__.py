@@ -31,6 +31,8 @@
         'views/account_reconcile_views.xml',
         'views/res_config_settings_views.xml',
         'views/account_bank_rec_views.xml',
+        'views/account_move_views.xml',
+        'views/account_account_views.xml',
     ],
     'assets': {
         'web.assets_backend': [

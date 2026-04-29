@@ -2,24 +2,36 @@
 <templates xml:space="preserve">
     <t t-name="odooer_account.BankRecTransactionList">
         <div class="o_bank_rec_transaction_list d-flex flex-column h-100">
-            <div class="p-2 border-bottom bg-light d-flex gap-2">
+
+            <!-- Native Odoo search bar (facets, autocomplete, filters dropdown) -->
+            <div class="o_bank_rec_search_bar border-bottom">
+                <SearchBar/>
+            </div>
+
+            <!-- Toolbar: New button + status filter buttons -->
+            <div class="px-2 py-1 border-bottom bg-light d-flex align-items-center gap-1">
                 <button class="btn btn-sm btn-primary" t-on-click="openNewTransactionDialog">
                     <i class="fa fa-plus me-1"/> New
                 </button>
-                <input type="search" class="form-control form-control-sm"
-                    placeholder="Search transactions..."
-                    t-on-input="onSearchInput"/>
-                <button class="btn btn-sm"
-                    t-att-class="state.showReconciled ? 'btn-primary' : 'btn-outline-secondary'"
-                    t-on-click="toggleShowReconciled"
-                    title="Show reconciled">
-                    <i class="fa fa-check-circle"/>
-                </button>
+                <div class="ms-auto d-flex gap-1">
+                    <button class="btn btn-sm"
+                        t-att-class="props.status === 'unreconciled' ? 'btn-primary' : 'btn-outline-secondary'"
+                        t-on-click="() => props.onSetStatus('unreconciled')">Unmatched</button>
+                    <button class="btn btn-sm"
+                        t-att-class="props.status === 'reconciled' ? 'btn-primary' : 'btn-outline-secondary'"
+                        t-on-click="() => props.onSetStatus('reconciled')">Matched</button>
+                    <button class="btn btn-sm"
+                        t-att-class="props.status === 'all' ? 'btn-primary' : 'btn-outline-secondary'"
+                        t-on-click="() => props.onSetStatus('all')">All</button>
+                </div>
             </div>
-            <div class="px-3 py-1 bg-light border-bottom small text-muted">
+
+            <!-- Record count -->
+            <div class="px-3 py-1 border-bottom small text-muted bg-white">
                 <t t-esc="state.total"/> transaction(s)
-                <span t-if="!state.showReconciled"> unreconciled</span>
             </div>
+
+            <!-- Lines list -->
             <div class="flex-grow-1 overflow-auto">
                 <t t-if="state.loading">
                     <div class="text-center p-4"><i class="fa fa-spin fa-circle-o-notch"/></div>
@@ -29,19 +41,24 @@
                         <div class="o_bank_rec_line p-3 border-bottom cursor-pointer"
                             t-att-class="{
                                 'bg-primary text-white': props.selectedLineId === line.id,
-                                'bg-light-subtle': line.is_reconciled and props.selectedLineId !== line.id,
+                                'o_reconciled_line': line.is_reconciled and props.selectedLineId !== line.id,
                             }"
                             t-on-click="() => this.selectLine(line.id)">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div class="flex-grow-1 me-2" style="min-width:0">
                                     <div class="fw-semibold text-truncate" t-esc="line.payment_ref or '(no label)'"/>
                                     <div class="small text-truncate opacity-75" t-esc="line.partner_name"/>
-                                    <div class="small opacity-75" t-esc="line.date"/>
+                                    <div class="small opacity-75">
+                                        <t t-esc="line.date"/>
+                                        <t t-if="!props.journalId and line.journal_name">
+                                            · <span class="fst-italic"><t t-esc="line.journal_name"/></span>
+                                        </t>
+                                    </div>
                                 </div>
                                 <div class="text-end flex-shrink-0">
                                     <div class="fw-bold"
                                         t-attf-class="{{ line.amount >= 0 ? 'text-success' : 'text-danger' }}">
-                                        <t t-if="line.amount >= 0">+</t><t t-esc="line.amount.toFixed(2)"/><t t-esc="' ' + line.currency_symbol"/>
+                                        <t t-if="line.amount >= 0">+</t><t t-esc="line.amount.toFixed(2)"/> <t t-esc="line.currency_symbol"/>
                                     </div>
                                     <div class="mt-1">
                                         <span t-if="line.is_reconciled" class="badge bg-success-subtle text-success">Matched</span>
@@ -52,16 +69,29 @@
                             </div>
                         </div>
                     </t>
-                    <div t-if="state.lines.length === 0 and !state.loading"
+                    <div t-if="state.lines.length === 0"
                          class="text-center text-muted p-5">
                         <i class="fa fa-check-circle-o fa-2x mb-2 d-block"/>
-                        All transactions reconciled!
+                        No transactions found
                     </div>
                 </t>
             </div>
-            <div class="p-2 border-top text-end">
-                <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.loadLines()">
-                    <i class="fa fa-refresh"/> Refresh
+
+            <!-- Pagination bar -->
+            <div class="px-3 py-2 border-top d-flex align-items-center justify-content-between bg-light small">
+                <button class="btn btn-sm btn-outline-secondary"
+                        t-att-disabled="state.page === 1"
+                        t-on-click="prevPage">
+                    <i class="fa fa-chevron-left"/>
+                </button>
+                <span class="text-muted">
+                    Page <t t-esc="state.page"/> of <t t-esc="totalPages"/>
+                    (<t t-esc="state.total"/> total)
+                </span>
+                <button class="btn btn-sm btn-outline-secondary"
+                        t-att-disabled="state.page >= totalPages"
+                        t-on-click="nextPage">
+                    <i class="fa fa-chevron-right"/>
                 </button>
             </div>
         </div>

@@ -3,11 +3,18 @@ import { Component, useState, onWillStart, onWillUpdateProps } from "@odoo/owl";
 import { rpc } from "@web/core/network/rpc";
 import { useService } from "@web/core/utils/hooks";
 import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
+import { SearchBar } from "@web/search/search_bar/search_bar";
+
+const PAGE_SIZE = 30;
 
 export class BankRecTransactionList extends Component {
     static template = "odooer_account.BankRecTransactionList";
+    static components = { SearchBar };
     static props = {
-        journalId: Number,
+        domain: { type: Array, optional: true },
+        journalId: { type: [Number, { value: null }], optional: true },
+        status: { type: String, optional: true },
+        onSetStatus: Function,
         selectedLineId: { type: [Number, { value: null }], optional: true },
         onSelect: Function,
         onLineReconciled: Function,
@@ -16,45 +23,29 @@ export class BankRecTransactionList extends Component {
 
     setup() {
         this.dialog = useService("dialog");
-        this.state = useState({
-            lines: [],
-            total: 0,
-            loading: false,
-            showReconciled: false,
-            searchTerm: '',
-            offset: 0,
-        });
-        onWillStart(() => this.loadLines());
-        // Reload whenever the parent increments listVersion (after reconcile/unreconcile)
+        this.state = useState({ lines: [], total: 0, loading: false, page: 1 });
+
+        onWillStart(() => this.loadLines(this.props.domain || []));
+
         onWillUpdateProps((nextProps) => {
-            if (nextProps.listVersion !== this.props.listVersion) {
-                this.loadLines();
+            const domainChanged =
+                JSON.stringify(nextProps.domain) !== JSON.stringify(this.props.domain);
+            const versionChanged = nextProps.listVersion !== this.props.listVersion;
+            if (domainChanged || versionChanged) {
+                this.state.page = 1;
+                this.loadLines(nextProps.domain || []);
             }
         });
     }
 
-    openNewTransactionDialog() {
-        this.dialog.add(FormViewDialog, {
-            resModel: "account.bank.statement.line",
-            title: "New Transaction",
-            context: {
-                default_journal_id: this.props.journalId,
-                is_statement_line: true,
-            },
-            onRecordSaved: () => this.loadLines(),
-        });
-    }
-
-    async loadLines(reset = true) {
-        if (reset) this.state.offset = 0;
+    async loadLines(domain, resetPage = true) {
+        if (resetPage) this.state.page = 1;
         this.state.loading = true;
         try {
             const result = await rpc('/odooer/bank_rec/get_lines', {
-                journal_id: this.props.journalId,
-                search_term: this.state.searchTerm,
-                show_reconciled: this.state.showReconciled,
-                limit: 50,
-                offset: this.state.offset,
+                domain: domain ?? this.props.domain ?? [],
+                limit: PAGE_SIZE,
+                offset: (this.state.page - 1) * PAGE_SIZE,
             });
             this.state.lines = result.lines;
             this.state.total = result.total;
@@ -63,14 +54,31 @@ export class BankRecTransactionList extends Component {
         }
     }
 
-    onSearchInput(ev) {
-        this.state.searchTerm = ev.target.value;
-        this.loadLines();
+    get totalPages() {
+        return Math.max(1, Math.ceil(this.state.total / PAGE_SIZE));
     }
 
-    toggleShowReconciled() {
-        this.state.showReconciled = !this.state.showReconciled;
-        this.loadLines();
+    prevPage() {
+        if (this.state.page > 1) {
+            this.state.page--;
+            this.loadLines(this.props.domain || [], false);
+        }
+    }
+
+    nextPage() {
+        if (this.state.page < this.totalPages) {
+            this.state.page++;
+            this.loadLines(this.props.domain || [], false);
+        }
+    }
+
+    openNewTransactionDialog() {
+        this.dialog.add(FormViewDialog, {
+            resModel: "account.bank.statement.line",
+            title: "New Transaction",
+            context: { default_journal_id: this.props.journalId, is_statement_line: true },
+            onRecordSaved: () => this.loadLines(this.props.domain || []),
+        });
     }
 
     selectLine(lineId) {
